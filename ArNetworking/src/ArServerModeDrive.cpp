@@ -230,8 +230,10 @@ AREXPORT void ArServerModeDrive::userTask(void)
     // not and more values it means a stall
     else if (myRobot->getStallValue())
       myStatus = "Bumped";
-    else if (ArMath::fabs(myRobot->getVel()) < 2 && 
-	     ArMath::fabs(myRobot->getRotVel()) < 2)
+    /// MPL 2014_04_17 centralizing all the places stopped is calculated
+    //else if (ArMath::fabs(myRobot->getVel()) < 2 && 
+    //ArMath::fabs(myRobot->getRotVel()) < 2)
+    else if (myRobot->isStopped())
       myStatus = "Stopped";
     else
       myStatus = "Driving";

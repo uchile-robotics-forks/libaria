@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -39,6 +40,16 @@ Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
  *  focus on individual areas.
  */
 
+bool handleDebugMessage(ArRobotPacket *pkt)
+{
+  if(pkt->getID() != ArCommands::MARCDEBUG) return false;
+  char msg[256];
+  pkt->bufToStr(msg, sizeof(msg));
+  msg[255] = 0;
+  ArLog::log(ArLog::Terse, "Controller Firmware Debug: %s", msg);
+  return true;
+}
+
 int main(int argc, char** argv)
 {
   // Initialize some global data
@@ -65,6 +76,8 @@ int main(int argc, char** argv)
   // if the robot does not automatically use the gyro to correct heading,
   // this object reads data from it and corrects the pose in ArRobot
   ArAnalogGyro gyro(&robot);
+
+  robot.addPacketHandler(new ArGlobalRetFunctor1<bool, ArRobotPacket*>(&handleDebugMessage));
 
   // Connect to the robot, get some initial data from it such as type and name,
   // and then load parameter files for this robot.
@@ -141,8 +154,7 @@ int main(int argc, char** argv)
         true    // add all lasers to ArRobot
   ))
   {
-    printf("Could not connect to lasers... exiting\n");
-    Aria::exit(2);
+     printf("Warning: Could not connect to laser(s). Set LaserAutoConnect to false in this robot's individual parameter file to disable laser connection.\n");
   }
 
 /* not needed, robot connector will do it by default
@@ -182,6 +194,7 @@ int main(int argc, char** argv)
   ArModeActs actsMode(&robot, "acts", 'a', 'A');
   ArModeTCM2 tcm2(&robot, "tcm2", 'm', 'M', compass);
   ArModeIO io(&robot, "io", 'i', 'I');
+  ArModeRobotStatus stat(&robot, "detailed status/error flags", 'f', 'F');
   ArModeConfig cfg(&robot, "report robot config", 'o' , 'O');
   ArModeCommand command(&robot, "command", 'd', 'D');
   ArModeCamera camera(&robot, "camera", 'c', 'C');

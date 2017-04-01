@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -241,6 +242,9 @@ public:
   /// Change the doClose value
   AREXPORT void setDoClose(bool yesno) {myDoClose=yesno;}
 
+  /// Set if we're faking writes or not
+  AREXPORT void setFakeWrites(bool fakeWrites) {myFakeWrites=fakeWrites;}
+
   /// Get the file descriptor
   AREXPORT int getFD() const {return(myFD);}
 
@@ -364,6 +368,7 @@ protected:
   bool myNonBlocking;
   struct sockaddr_in mySin;
 
+  bool myFakeWrites;
   bool myLogWriteStrings;
   ArMutex myReadStringMutex;
   ArMutex myWriteStringMutex;

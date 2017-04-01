@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -110,13 +111,17 @@ public:
   AREXPORT virtual void byte2ToBuf(ArTypes::Byte2 val);
   /// Puts ArTypes::Byte4 into packets buffer
   AREXPORT virtual void byte4ToBuf(ArTypes::Byte4 val);
+  /// Puts ArTypes::Byte8 into packets buffer
+  AREXPORT virtual void byte8ToBuf(ArTypes::Byte8 val);
 
   /// Puts ArTypes::UByte into packets buffer
   AREXPORT virtual void uByteToBuf(ArTypes::UByte val);
   /// Puts ArTypes::UByte2 into packet buffer
   AREXPORT virtual void uByte2ToBuf(ArTypes::UByte2 val);
-  /// Puts ArTypes::UByte 4 into packet buffer
+  /// Puts ArTypes::UByte4 into packet buffer
   AREXPORT virtual void uByte4ToBuf(ArTypes::UByte4 val);
+  /// Puts ArTypes::UByte8 into packet buffer
+  AREXPORT virtual void uByte8ToBuf(ArTypes::UByte8 val);
 
   /// Puts a NULL-terminated string into packet buffer
   AREXPORT virtual void strToBuf(const char *str);
@@ -141,6 +146,8 @@ public:
   AREXPORT virtual ArTypes::Byte2 bufToByte2(void);
   /// Gets a ArTypes::Byte4 from the buffer
   AREXPORT virtual ArTypes::Byte4 bufToByte4(void);
+  /// Gets a ArTypes::Byte8 from the buffer
+  AREXPORT virtual ArTypes::Byte8 bufToByte8(void);
 
   /// Gets a ArTypes::UByte from the buffer
   AREXPORT virtual ArTypes::UByte bufToUByte(void);
@@ -148,9 +155,13 @@ public:
   AREXPORT virtual ArTypes::UByte2 bufToUByte2(void);
   /// Gets a ArTypes::UByte4 from the buffer
   AREXPORT virtual ArTypes::UByte4 bufToUByte4(void);
+  /// Gets a ArTypes::UByte8 from the buffer
+  AREXPORT virtual ArTypes::UByte8 bufToUByte8(void);
 
-  /// Gets a string from the buffer
-  AREXPORT virtual void bufToStr(char *buf, int len);
+  /// Gets a null-terminated string from the buffer
+  AREXPORT virtual void bufToStr(char *buf, int maxlen);
+  /// Gets a null-terminated string from the buffer
+  AREXPORT std::string bufToString();
   /// Gets length bytes from buffer and puts them into data
   AREXPORT virtual void bufToData(char * data, int length);
   /// Gets length bytes from buffer and puts them into data
@@ -164,7 +175,7 @@ public:
   /// Gets the total length of the packet
   virtual ArTypes::UByte2 getLength(void) const { return myLength; }
   /// Gets the length of the data in the packet
-  virtual ArTypes::UByte2 getDataLength(void) const { return myLength - myHeaderLength - myFooterLength; }
+  AREXPORT virtual ArTypes::UByte2 getDataLength(void) const;
 
   /// Gets how far into the packet that has been read
   virtual ArTypes::UByte2 getReadLength(void) const { return myReadLength; }

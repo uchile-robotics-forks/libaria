@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -195,12 +196,24 @@ public:
 
   /// Can pan and tilt speed (slew rates) be set to move device?
   virtual bool canPanTiltSlew() { return false; }
+  /// @copydoc canPanTiltSlew()
+  bool canSetSpeed() { return canPanTiltSlew(); }
   
   /// Set pan slew rate (speed) (degrees/sec) if device supports it (see canPanTiltSlew())
   virtual bool panSlew(double s) { return false; }
+  /// @copydoc panSlew()
+  bool setPanSpeed(double s) { return panSlew(s); }
   
   /// Set tilt slew rate (speed) (degrees/sec) if device supports it (see canPanTiltSlew())
   virtual bool tiltSlew(double s) { return false; }
+  /// @copydoc tiltSlew()
+  bool setTiltSpeed(double s) { return tiltSlew(s); }
+
+  /// Maximum pan speed (slew rate) (degrees/sec) if device supports, or 0 if not.
+  virtual double getMaxPanSpeed() { return 0.0; }
+
+  /// Maximum tilt speed (slew rate) (degrees/sec) if device supports it, or 0 if not.
+  virtual double getMaxTiltSpeed() { return 0.0; }
 
 protected:
   /// Versions of the pan and tilt limit accessors where inversion is not applied, for use by subclasses to check when given pan/tilt commands.
@@ -244,6 +257,9 @@ public:
   AREXPORT virtual double getFocus(double focus) const { return 0; }
   /// If the driver can set the focus on the camera, or not
   AREXPORT virtual bool canSetFocus(void) const { return false; }
+
+  /// Disable/enable autofocus mode if possible. Return false if can't change autofocus mode.
+  AREXPORT virtual bool setAutoFocus(bool af = true) { return false; }
 
   /// Set whether the camera is inverted (upside down). If true, pan and tilt axes will be reversed.
   void setInverted(bool inv) { myInverted = inv; }
@@ -306,6 +322,10 @@ public:
 
   /// Return ArRobot object this PTZ is associated with. May be NULL
   ArRobot *getRobot() { return myRobot; }
+
+  /// Set ArRobot object this PTZ is associated with. May be NULL
+  void setRobot(ArRobot* r) { myRobot = r; }
+
 protected:
   ArRobot *myRobot;
   ArDeviceConnection *myConn;

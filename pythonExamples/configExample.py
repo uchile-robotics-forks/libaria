@@ -1,8 +1,9 @@
 """
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -23,6 +24,8 @@ Adept MobileRobots for information about a commercial version of ARIA at
 robots@mobilerobots.com or 
 Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 """
+
+from __future__ import division # For correct float division in Python 2
 from AriaPy import *
 import sys
 
@@ -109,6 +112,7 @@ class ConfigExample:
 Aria_init()
 argParser = ArArgumentParser(sys.argv)
 argParser.loadDefaultArguments()
+
 if len(sys.argv) < 2  or  not Aria_parseArgs()  or  argParser.checkArgument("-help"):
   ArLog.log(ArLog.Terse, "configExample: Error: no config file given as command line argument.");
   ArLog.log(ArLog.Terse, "configExample: usage: configExample <config file>.\nFor example, \"configExample configExample.cfg\".")

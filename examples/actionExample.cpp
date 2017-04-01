@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -287,10 +288,32 @@ ArActionDesired *ActionTurn::fire(ArActionDesired currentDesired)
 int main(int argc, char** argv)
 {
   Aria::init();
-
-  ArSimpleConnector conn(&argc, argv);
+  ArArgumentParser parser(&argc, argv);
+  parser.loadDefaultArguments();
   ArRobot robot;
   ArSonarDevice sonar;
+
+  // Connect to the robot, get some initial data from it such as type and name,
+  // and then load parameter files for this robot.
+  ArRobotConnector robotConnector(&parser, &robot);
+  if(!robotConnector.connectRobot())
+  {
+    ArLog::log(ArLog::Terse, "actionExample: Could not connect to the robot.");
+    if(parser.checkHelpAndWarnUnparsed())
+    {
+        // -help not given
+        Aria::logOptions();
+        Aria::exit(1);
+    }
+  }
+
+  if (!Aria::parseArgs() || !parser.checkHelpAndWarnUnparsed())
+  {
+    Aria::logOptions();
+    Aria::exit(1);
+  }
+
+  ArLog::log(ArLog::Normal, "actionExample: Connected to robot.");
 
   // Create instances of the actions defined above, plus ArActionStallRecover, 
   // a predefined action from Aria.
@@ -299,20 +322,6 @@ int main(int argc, char** argv)
   ArActionStallRecover recover;
 
     
-  // Parse all command-line arguments
-  if(!Aria::parseArgs())
-  {
-    Aria::logOptions();
-    return 1;
-  }
-  
-  // Connect to the robot
-  if(!conn.connectRobot(&robot))
-  {
-    ArLog::log(ArLog::Terse, "actionExample: Could not connect to robot! Exiting.");
-    return 2;
-  }
-
   // Add the range device to the robot. You should add all the range 
   // devices and such before you add actions
   robot.addRangeDevice(&sonar);

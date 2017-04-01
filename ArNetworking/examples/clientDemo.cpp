@@ -15,14 +15,14 @@
 
 #include "Aria.h"
 #include "ArNetworking.h"
+#include "ArClientRatioDrive.h"
 
 
-/* This class provides callback functions which are called by the ArKeyHandler
- * object when the user presses keys. These callback functions adjust member
- * variables.  The sendInput() method sends a command with those values
- * to the server using the "ratioDrive" request.
+#define VEL_AMOUNT 50  // percentage of server's configured maximum speed
+
+/* This class receives key events via callbacks from ArKeyHandler, and in 
+   response sets values for an ArClientRatioDrive object to send. 
  */
-
 class InputHandler
 {
 public: 
@@ -32,6 +32,8 @@ public:
    */
   InputHandler(ArClientBase *client, ArKeyHandler *keyHandler);
   virtual ~InputHandler(void);
+
+protected:
 
   /// Up arrow key handler: drive the robot forward
   void up(void);
@@ -54,32 +56,33 @@ public:
   /// Send drive request to the server with stored values
   void sendInput(void);
 
+public:
   /// Send a request to enable "safe drive" mode on the server
   void safeDrive();
 
+protected:
   /// Send a request to disable "safe drive" mode on the server
   void unsafeDrive();
 
+  /// Request stop
+  void space();
+
   void listData();
+
 
   void logTrackingTerse();
   void logTrackingVerbose();
   void resetTracking();
-protected:
+  void toggleDebug();
+
   ArClientBase *myClient;
   ArKeyHandler *myKeyHandler;
 
   /// Set this to true in the constructor to print out debugging information
   bool myPrinting;
 
-  /// Current translation value (a percentage of the  maximum speed)
-  double myTransRatio;
-
-  /// Current rotation ration value (a percentage of the maximum rotational velocity)
-  double myRotRatio;
-
-  /// Current rotation ration value (a percentage of the maximum rotational velocity)
-  double myLatRatio;
+  /// Object that continuously sends driving requests in the background. 
+  ArClientRatioDrive myDriveClient;
 
   /** Functor objects, given to the key handler, which then call our handler
    * methods above */
@@ -96,12 +99,14 @@ protected:
   ArFunctorC<InputHandler> myLogTrackingTerseCB;
   ArFunctorC<InputHandler> myLogTrackingVerboseCB;
   ArFunctorC<InputHandler> myResetTrackingCB;
+  ArFunctorC<InputHandler> mySpaceCB;
+  ArFunctorC<InputHandler> myToggleDebugCB;
   ///@}
 };
 
 InputHandler::InputHandler(ArClientBase *client, ArKeyHandler *keyHandler) : 
   myClient(client), myKeyHandler(keyHandler),
-  myPrinting(false), myTransRatio(0.0), myRotRatio(0.0), myLatRatio(0.0),
+  myPrinting(false), myDriveClient(client),
 
   /* Initialize functor objects with pointers to our handler methods: */
   myUpCB(this, &InputHandler::up),
@@ -115,7 +120,9 @@ InputHandler::InputHandler(ArClientBase *client, ArKeyHandler *keyHandler) :
   myListDataCB(this, &InputHandler::listData),
   myLogTrackingTerseCB(this, &InputHandler::logTrackingTerse),
   myLogTrackingVerboseCB(this, &InputHandler::logTrackingVerbose),
-  myResetTrackingCB(this, &InputHandler::resetTracking)
+  myResetTrackingCB(this, &InputHandler::resetTracking),
+  mySpaceCB(this, &InputHandler::space),
+  myToggleDebugCB(this, &InputHandler::toggleDebug)
 {
 
   /* Add our functor objects to the key handler, associated with the appropriate
@@ -132,6 +139,8 @@ InputHandler::InputHandler(ArClientBase *client, ArKeyHandler *keyHandler) :
   myKeyHandler->addKeyHandler('t', &myLogTrackingTerseCB);
   myKeyHandler->addKeyHandler('v', &myLogTrackingVerboseCB);
   myKeyHandler->addKeyHandler('r', &myResetTrackingCB);
+  myKeyHandler->addKeyHandler(ArKeyHandler::SPACE, &mySpaceCB);
+  myKeyHandler->addKeyHandler('d', &myToggleDebugCB);
 }
 
 InputHandler::~InputHandler(void)
@@ -139,76 +148,74 @@ InputHandler::~InputHandler(void)
 
 }
 
+void InputHandler::space(void)
+{
+  if(myPrinting)
+    puts("Stop");
+  myDriveClient.stop();
+}
+
 void InputHandler::up(void)
 {
   if (myPrinting)
     printf("Forwards\n");
-  myTransRatio = 100;
+  myDriveClient.setTransVelRatio(VEL_AMOUNT);
 }
 
 void InputHandler::down(void)
 {
   if (myPrinting)
     printf("Backwards\n");
-  myTransRatio = -100;
+  myDriveClient.setTransVelRatio(-VEL_AMOUNT);
 }
 
 void InputHandler::left(void)
 {
   if (myPrinting)
     printf("Left\n");
-  myRotRatio = 100;
+  myDriveClient.setRotVelRatio(VEL_AMOUNT);
 }
 
 void InputHandler::right(void)
 {
   if (myPrinting)
     printf("Right\n");
-  myRotRatio = -100;
+  myDriveClient.setRotVelRatio(-VEL_AMOUNT);
 }
 
 void InputHandler::lateralLeft(void)
 {
   if (myPrinting)
     printf("Lateral left\n");
-  myLatRatio = 100;
+  myDriveClient.setLatVelRatio(VEL_AMOUNT);
 }
 
 void InputHandler::lateralRight(void)
 {
   if (myPrinting)
     printf("Lateral right\n");
-  myLatRatio = -100;
+  myDriveClient.setLatVelRatio(-VEL_AMOUNT);
 }
 
 void InputHandler::safeDrive()
 {
-  /* Construct a request packet. The data is a single byte, with value 
-   * 1 to enable safe drive, 0 to disable. */
-  ArNetPacket p;
-  p.byteToBuf(1);
-
-  /* Send the packet as a single request: */
   if(myPrinting)
     printf("Sending setSafeDrive 1.\n");
-  myClient->requestOnce("setSafeDrive",&p);
-  if(myPrinting)
-    printf("\nSent enable safe drive.\n");
+  myDriveClient.safeDrive();
 }
 
 void InputHandler::unsafeDrive()
 {
-  /* Construct a request packet. The data is a single byte, with value 
-   * 1 to enable safe drive, 0 to disable. */
-  ArNetPacket p;
-  p.byteToBuf(0);
-
-  /* Send the packet as a single request: */
   if(myPrinting)
     printf("Sending setSafeDrive 0.\n");
-  myClient->requestOnce("setSafeDrive",&p);
-  if(myPrinting)
-    printf("\nSent disable safe drive command. Your robot WILL run over things if you're not careful.\n");
+  myDriveClient.unsafeDrive();
+}
+
+void InputHandler::toggleDebug()
+{
+  myPrinting = !myPrinting;
+  myDriveClient.setDebugPrint(myPrinting);
+  printf("clientDemo debug printing is now %s\n", myPrinting?"on":"off");
 }
 
 void InputHandler::listData()
@@ -229,30 +236,6 @@ void InputHandler::logTrackingVerbose()
 void InputHandler::resetTracking()
 {
   myClient->resetTracking();
-}
-
-
-void InputHandler::sendInput(void)
-{
-  /* This method is called by the main function to send a ratioDrive
-   * request with our current velocity values. If the server does 
-   * not support the ratioDrive request, then we abort now: */
-  if(!myClient->dataExists("ratioDrive")) return;
-
-  /* Construct a ratioDrive request packet.  It consists
-   * of three doubles: translation ratio, rotation ratio, and an overall scaling
-   * factor. */
-  ArNetPacket packet;
-  packet.doubleToBuf(myTransRatio);
-  packet.doubleToBuf(myRotRatio);
-  packet.doubleToBuf(50); // use half of the robot's maximum.
-  packet.doubleToBuf(myLatRatio);
-  if (myPrinting)
-    printf("Sending\n");
-  myClient->requestOnce("ratioDrive", &packet);
-  myTransRatio = 0;
-  myRotRatio = 0;
-  myLatRatio = 0;
 }
 
 
@@ -404,13 +387,13 @@ void OutputHandler::handleOutput(ArNetPacket *packet)
 
   if(myNeedToPrintHeader) 
   {
-    printf("\n%6s|%6s|%6s|%6s|%6s|%6s|%4s|%6s|%15s|%20s|\n",
+    printf("\n%6s|%6s|%6s|%4s|%6s|%6s|%4s|%6s|%10s|%20s|\n",
 	   "x","y","theta", "vel", "rotVel", "latVel", "temp", myVoltageIsStateOfCharge ? "charge" : "volts", "mode","status");
     fflush(stdout);
     myNeedToPrintHeader = false;
   }
   if (myGotBatteryInfo)
-    printf("%6.0f|%6.0f|%6.1f|%6.0f|%6.0f|%6.0f|%4.0d|%6.1f|%15s|%20s|\r",
+    printf("%6.0f|%6.0f|%6.1f|%4.0f|%6.0f|%6.0f|%4.0d|%6.1f|%10s|%20s|\r",
 	   myX, myY, myTh, myVel, myRotVel, myLatVel, myTemperature, myVoltage, myMode, myStatus);
   
   fflush(stdout);
@@ -435,13 +418,13 @@ void OutputHandler::handleOutputNumbers(ArNetPacket *packet)
 
   if(myNeedToPrintHeader) 
   {
-    printf("\n%6s|%6s|%6s|%6s|%6s|%6s|%4s|%6s|%15s|%20s|\n",
+    printf("\n%6s|%6s|%6s|%4s|%6s|%6s|%4s|%6s|%10s|%20s|\n",
 	   "x","y","theta", "vel", "rotVel", "latVel", "temp", myVoltageIsStateOfCharge ? "charge" : "volts", "mode","status");
     fflush(stdout);
     myNeedToPrintHeader = false;
   }
   if (myGotBatteryInfo)
-    printf("%6.0f|%6.0f|%6.1f|%6.0f|%6.0f|%6.0f|%4.0d|%6.1f|%15s|%20s|\r",
+    printf("%6.0f|%6.0f|%6.1f|%4.0f|%6.0f|%6.0f|%4.0d|%6.1f|%10s|%20s|\r",
 	   myX, myY, myTh, myVel, myRotVel, myLatVel, myTemperature, myVoltage, myMode, myStatus);
   
   fflush(stdout);
@@ -585,13 +568,6 @@ int main(int argc, char **argv)
   ArGlobalFunctor escapeCB(&escape);
   keyHandler.addKeyHandler(ArKeyHandler::ESCAPE, &escapeCB);
 
-  /* Now that we're connected, we can run the client in a background thread, 
-   * sending requests and receiving replies. When a reply to a request arrives,
-   * or the server makes a request of the client, a handler functor is invoked. 
-   * The handlers for this program are registered with the client by the 
-   * InputHandler and OutputHandler classes (in their constructors, above) */
-  client.runAsync();
-
   /* Create the InputHandler object and request safe-drive mode */
   InputHandler inputHandler(&client, &keyHandler);
   inputHandler.safeDrive();
@@ -602,7 +578,8 @@ int main(int argc, char **argv)
       printf("Warning: server does not have ratioDrive command, can not use drive commands!\n");
   else
     printf("Keys are:\nUP: Forward\nDOWN: Backward\nLEFT: Turn Left\nRIGHT: Turn Right\n");
-  printf("s: Enable safe drive mode (if supported).\nu: Disable safe drive mode (if supported).\nl: list all data requests on server\n\nDrive commands use 'ratioDrive'.\nt: logs the network tracking tersely\nv: logs the network tracking verbosely\nr: resets the network tracking\n\n");
+  printf("s: Enable safe drive mode (if supported).\nu: Disable safe drive mode (if supported).\nl: list all data requests on server\n\nDrive commands use 'ratioDrive'.\nt: logs the network tracking tersely\nv: logs the network tracking verbosely\nr: resets the network tracking\nd: turn on debugging of this example program\n\n");
+  printf("ESC or CTRL-C: exit program\n\n");
 
 
   /* Create the OutputHandler object. It will begin printing out data from the
@@ -610,8 +587,12 @@ int main(int argc, char **argv)
   OutputHandler outputHandler(&client);
 
 
-  /* Begin capturing keys into the key handler. Callbacks will be called
-   * asyncrosously from this main thread when pressed.  */
+  /* Now that we're connected, we can run the client in a background thread, 
+   * sending requests and receiving replies. When a reply to a request arrives,
+   * or the server makes a request of the client, a handler functor is invoked. 
+   * The handlers for this program are registered with the client by the 
+   * InputHandler and OutputHandler classes (in their constructors, above) */
+  client.runAsync();
 
   /* While the client is still running (getRunningWithLock locks the "running"
    * flag until it returns), check keys on the key handler (which will call
@@ -622,13 +603,12 @@ int main(int argc, char **argv)
   while (client.getRunningWithLock())
   {
     keyHandler.checkKeys();
-    inputHandler.sendInput();
+//    inputHandler.sendInput();
     ArUtil::sleep(100);
   }
 
   /* The client stopped running, due to disconnection from the server, general
    * Aria shutdown, or some other reason. */
   client.disconnect();
-  Aria::shutdown();
-  return 0;
+  Aria::exit(0);
 }

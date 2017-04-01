@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -86,6 +87,7 @@ Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
  *  microcontroller's auxilliary serial port (the usual connection method for
  *  most robots) or a computer serial port.
  * 
+ * @todo Implement setFocus() (send "Focus Position Assignment" command 0xB0 to camera)
 
 \section VCC4CommandDetails Command-Response details:
 
@@ -270,12 +272,23 @@ public:
   AREXPORT virtual bool canGetRealZoom(void) const { return true; }
   AREXPORT virtual bool canSetFocus(void) const { return false; }
   /// Set autofocus mode:
-  /// 0 = Autofocus, 1 = manual focus
+  /// @deprecated use setAutoFocus() instead
   AREXPORT virtual bool autoFocus(void) { myFocusModeDesired = 0; return true;}
+  /// set manual focus mode
+  /// @deprecated use setAutoFocus() instead
+  AREXPORT virtual bool manualFocus(void) { myFocusModeDesired = 1; return true;}
   /// auto-focus on a near object
   AREXPORT virtual bool focusNear(void) { myFocusModeDesired = 2; return true;}
-  /// auto-fovus on a far object
+  /// auto-focus on a far object
   AREXPORT virtual bool focusFar(void) { myFocusModeDesired = 3; return true; }
+
+  AREXPORT virtual bool setAutoFocus(bool af = true) 
+  {
+    if(af)
+      return autoFocus();
+    else
+      return manualFocus();
+  }
 
   /// Gets the current pan slew
   AREXPORT double getPanSlew(void) { return myPanSlewDesired; }

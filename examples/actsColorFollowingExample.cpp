@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -221,40 +222,57 @@ void toggleAction(ArAction* action)
 int main(int argc, char** argv)
 {
   Aria::init();
-
-  // The robot
+  ArArgumentParser parser(&argc, argv);
+  parser.loadDefaultArguments();
   ArRobot robot;
+  ArRobotConnector robotConnector(&parser, &robot);
+  ArLaserConnector laserConnector(&parser, &robot, &robotConnector);
+
+  // Sonar for basic obstacle avoidance
+  ArSonarDevice sonar;
+
+  // The camera (Cannon VC-C4) PTZ control
+  // TODO replace with ArPTZConnector for other camera types
+  ArVCC4 vcc4 (&robot);
+
+  // Connect to the robot, get some initial data from it such as type and name,
+  // and then load parameter files for this robot.
+  if(!robotConnector.connectRobot())
+  {
+    ArLog::log(ArLog::Terse, "actsColorFollowingExample: Could not connect to the robot.");
+    if(parser.checkHelpAndWarnUnparsed())
+    {
+        // -help not given
+        Aria::logOptions();
+        Aria::exit(1);
+    }
+  }
+
+  if (!Aria::parseArgs() || !parser.checkHelpAndWarnUnparsed())
+  {
+    Aria::logOptions();
+    Aria::exit(1);
+  }
+
+  ArLog::log(ArLog::Normal, "actsColorFollowingExample: Connected to robot.");
+
+  robot.runAsync(true);
+
+  // Connect to laser(s) as defined in parameter files.
+  // (Some flags are available as arguments to connectLasers() to control error behavior and to control which lasers are put in the list of lasers stored by ArRobot. See docs for details.)
+  if(!laserConnector.connectLasers())
+  {
+    ArLog::log(ArLog::Terse, "Warning: Could not connect to configured lasers. ");
+  }
 
   // A key handler to take input from keyboard
   ArKeyHandler keyHandler;
   Aria::setKeyHandler(&keyHandler);
 
-  // Sonar for basic obstacle avoidance
-  ArSonarDevice sonar;
-
-  // The camera (Cannon VC-C4)
-  ArVCC4 vcc4 (&robot);
-
   // ACTS, for tracking blobs of color
   ArACTS_1_2 acts;
 
-  // command line arguments
-  ArArgumentParser argParser(&argc, argv);
-  argParser.loadDefaultArguments();
-  
-  // The simple way to connect to things (takes arguments from argParser)
-  ArSimpleConnector simpleConnector(&argParser);
-
-  // Parse the arguments                
-  if (!Aria::parseArgs())
-  {    
-    Aria::logOptions();
-    keyHandler.restore();
-    Aria::exit(1);
-    return 1;
-  }
-
-  // Robot motion limiter actions (if obstacles are detected by sonar)
+  // Robot motion limiter actions (if obstacles are detected by sonar or laser)
   ArActionLimiterForwards limiter("speed limiter near", 350, 800, 200);
   ArActionLimiterForwards limiterFar("speed limiter far", 400, 1250, 300);
   ArActionLimiterBackwards backwardsLimiter;
@@ -277,16 +295,10 @@ int main(int argc, char** argv)
   // Add the key handler to the robot
   robot.attachKeyHandler(&keyHandler);
 
+  robot.lock();
+
   // Add the sonar to the robot
   robot.addRangeDevice(&sonar);
-
-  // Connect to the robot
-  if (!simpleConnector.connectRobot(&robot))
-  {
-    ArLog::log(ArLog::Terse, "Error: Could not connect to robot... exiting\n");
-    keyHandler.restore();
-    Aria::exit(1);
-  }
 
   // Open a connection to ACTS
   if(!acts.openPort(&robot)) 
@@ -295,12 +307,10 @@ int main(int argc, char** argv)
     keyHandler.restore();
     Aria::exit(2);
   }
+  
 
   // Initialize the camera
   vcc4.init();
-
-  // Wait a second.....
-  ArUtil::sleep(1000);
 
   // Artificially keep the robot from going too fast
   robot.setAbsoluteMaxTransVel(400);
@@ -311,9 +321,6 @@ int main(int argc, char** argv)
   // Turn off the amigobot sounds
   robot.comInt(ArCommands::SOUNDTOG, 0);
 
-  // Wait....
-  ArUtil::sleep(200);
-
   // Add the actions to the robot in descending order of importance.
   robot.addAction(&limiter, 7);
   robot.addAction(&limiterFar, 6);
@@ -322,13 +329,16 @@ int main(int argc, char** argv)
   robot.addAction(&chase, 3);
   robot.addAction(&stop, 1);
 
+  robot.unlock();
+
   // Start with keydrive action disabled. Use the 'a' key to turn it on.
   keydriveAction.deactivate();
 
   // Run the robot processing cycle until the connection is lost
   ArLog::log(ArLog::Normal, "Running. Train ACTS to detect a color to drive towards an object, or use 'a' key to switch to keyboard driving mode.");
-  robot.run(true);
   
+  robot.waitForRunExit();
+
   Aria::exit(0);
   return 0;
 }

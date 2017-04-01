@@ -29,7 +29,7 @@ all: $(patsubst %.java,%.class,$(wildcard *.java))
 
 %.class: %.java ../../java/Aria.jar ../../java/ArNetworking.jar $(RUNTIME_LIB_DIR)/$(LIB_PREFIX)Aria.$(LIB_EXT) $(RUNTIME_LIB_DIR)/$(LIB_PREFIX)ArNetworking.$(LIB_EXT)
 	@echo $^
-	"$(JAVAC)" -classpath "../../java/Aria.jar$(CLASSPATH_SEP)../../java/ArNetworking.jar" $<
+	"$(JAVAC)" -classpath "../../java/Aria.jar$(CLASSPATH_SEP)../../java/ArNetworking.jar$(CLASSPATH_SEP)." $<
 
 run%: %.class
 	$(RUNTIME_PATH_VAR)=$$$(RUNTIME_PATH_VAR):$(RUNTIME_LIB_DIR) "$(JAVA)" -cp ../../java/Aria.jar:../../java/ArNetworking.jar:. $* $(ARGS)

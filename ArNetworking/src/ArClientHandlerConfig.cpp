@@ -3,7 +3,7 @@
 #include "ArClientHandlerConfig.h"
 #include "ArClientArgUtils.h"
 
-//#define ARDEBUG_CLIENTHANDLERCONFIG
+#define ARDEBUG_CLIENTHANDLERCONFIG
 
 #if (defined(_DEBUG) && defined(ARDEBUG_CLIENTHANDLERCONFIG))
 #define IFDEBUG(code) {code;}
@@ -50,6 +50,8 @@ AREXPORT ArClientHandlerConfig::ArClientHandlerConfig(ArClientBase *client,
 
   myIsQuiet(false),
 
+  myHandleGetConfigBySectionsV4CB
+                     (this, &ArClientHandlerConfig::handleGetConfigBySectionsV4),
   myHandleGetConfigBySectionsV3CB
                      (this, &ArClientHandlerConfig::handleGetConfigBySectionsV3),
   myHandleGetConfigBySectionsV2CB
@@ -96,34 +98,42 @@ AREXPORT ArClientHandlerConfig::~ArClientHandlerConfig()
  **/
 AREXPORT void ArClientHandlerConfig::requestConfigFromServer(void)
 {
-  char *getConfigPacketName = "getConfigBySectionsV3";
+  IFDEBUG(ArLog::log(ArLog::Normal,
+                     "ArClientHandlerConfig::requestConfigFromServer()"));
+
+  char *getConfigPacketName = "getConfigBySectionsV4";
   bool isInsertPriority = true;
   bool isInsertRestartLevel = true;
 
-  ArFunctor1C<ArClientHandlerConfig, ArNetPacket *> *getConfigCB = &myHandleGetConfigBySectionsV3CB;
+  ArFunctor1C<ArClientHandlerConfig, ArNetPacket *> *getConfigCB = &myHandleGetConfigBySectionsV4CB;
   
   if (!myClient->dataExists(getConfigPacketName)) {
-
-    getConfigPacketName = "getConfigBySectionsV2";
-    getConfigCB = &myHandleGetConfigBySectionsV2CB;
+      
+    getConfigPacketName = "getConfigBySectionsV3";
+    getConfigCB = &myHandleGetConfigBySectionsV3CB;
 
     if (!myClient->dataExists(getConfigPacketName)) {
 
-      getConfigPacketName = "getConfigBySections";
-      isInsertRestartLevel = false;
-
-      getConfigCB = &myHandleGetConfigBySectionsCB;
+      getConfigPacketName = "getConfigBySectionsV2";
+      getConfigCB = &myHandleGetConfigBySectionsV2CB;
 
       if (!myClient->dataExists(getConfigPacketName)) {
-        getConfigPacketName = "getConfig";
-        isInsertPriority = false;
 
-        getConfigCB = &myHandleGetConfigCB;
+        getConfigPacketName = "getConfigBySections";
+        isInsertRestartLevel = false;
 
-      } // end if packet name does not exist
-    } // end if 
+        getConfigCB = &myHandleGetConfigBySectionsCB;
 
-  } // end if packet name does not exist
+        if (!myClient->dataExists(getConfigPacketName)) {
+          getConfigPacketName = "getConfig";
+          isInsertPriority = false;
+
+          getConfigCB = &myHandleGetConfigCB;
+
+        } // end if packet name does not exist
+      } // end if  packet name V2 does not exist
+    } // end if packet name V3 does not exist
+  } // end if packet name V4 does not exist
 
   char *setConfigPacketName = "setConfigBySectionsV2";
   ArFunctor1C<ArClientHandlerConfig, ArNetPacket *> *setConfigCB = &myHandleSetConfigBySectionsV2CB;
@@ -210,27 +220,35 @@ AREXPORT void ArClientHandlerConfig::requestConfigFromServer(void)
   myDataMutex.unlock();
 }
 
-AREXPORT void ArClientHandlerConfig::handleGetConfigBySectionsV3(ArNetPacket *packet)
+
+void ArClientHandlerConfig::handleGetConfigBySectionsV4
+                                                        (ArNetPacket *packet)
+{
+  handleGetConfigData(packet, true, 4);
+}
+
+
+void ArClientHandlerConfig::handleGetConfigBySectionsV3(ArNetPacket *packet)
 {
   handleGetConfigData(packet, true, 3);
 }
 
-AREXPORT void ArClientHandlerConfig::handleGetConfigBySectionsV2(ArNetPacket *packet)
+void ArClientHandlerConfig::handleGetConfigBySectionsV2(ArNetPacket *packet)
 {
   handleGetConfigData(packet, true, 2);
 }
 
-AREXPORT void ArClientHandlerConfig::handleGetConfigBySections(ArNetPacket *packet)
+void ArClientHandlerConfig::handleGetConfigBySections(ArNetPacket *packet)
 {
   handleGetConfigData(packet, true, 1);
 }
 
-AREXPORT void ArClientHandlerConfig::handleGetConfig(ArNetPacket *packet)
+void ArClientHandlerConfig::handleGetConfig(ArNetPacket *packet)
 {
   handleGetConfigData(packet, false, 0);
 }
 
-AREXPORT void ArClientHandlerConfig::handleGetConfigData(ArNetPacket *packet,
+void ArClientHandlerConfig::handleGetConfigData(ArNetPacket *packet,
                                                          bool isMultiplePackets,
                                                          int version)
 {
@@ -262,7 +280,9 @@ AREXPORT void ArClientHandlerConfig::handleGetConfigData(ArNetPacket *packet,
       packet->bufToStr(comment, sizeof(comment));
 
       if (version >= 2) {
+
         packet->bufToStr(categoryName, sizeof(categoryName));
+
         int index = 1;
 
         if (version >= 3) {
@@ -335,7 +355,6 @@ AREXPORT void ArClientHandlerConfig::handleGetConfigData(ArNetPacket *packet,
   myDataMutex.unlock();
 
 
-
   if (myHaveGottenConfig) {
 
     myCallbackMutex.lock();
@@ -351,7 +370,8 @@ AREXPORT void ArClientHandlerConfig::handleGetConfigData(ArNetPacket *packet,
 
 } // end method handleGetConfigData
 
-AREXPORT void ArClientHandlerConfig::handleGetConfigSectionFlags(
+
+void ArClientHandlerConfig::handleGetConfigSectionFlags(
 	ArNetPacket *packet) 
 {
   int numSections = packet->bufToByte4();
@@ -500,7 +520,7 @@ AREXPORT void ArClientHandlerConfig::saveConfigToServer(
   }
 }
 
-AREXPORT void ArClientHandlerConfig::handleSetConfig(ArNetPacket *packet)
+void ArClientHandlerConfig::handleSetConfig(ArNetPacket *packet)
 { 
   char buffer[1024];
   packet->bufToStr(buffer, sizeof(buffer));
@@ -528,7 +548,7 @@ AREXPORT void ArClientHandlerConfig::handleSetConfig(ArNetPacket *packet)
 }
 
 /// Handles the return packet from the setConfig (saveConfigToServer)
-AREXPORT void ArClientHandlerConfig::handleSetConfigBySections(ArNetPacket *packet)
+void ArClientHandlerConfig::handleSetConfigBySections(ArNetPacket *packet)
 {
   char buffer[1024];
   packet->bufToStr(buffer, sizeof(buffer));
@@ -556,7 +576,7 @@ AREXPORT void ArClientHandlerConfig::handleSetConfigBySections(ArNetPacket *pack
 } 
 
 /// Handles the return packet from the setConfig (saveConfigToServer)
-AREXPORT void ArClientHandlerConfig::handleSetConfigBySectionsV2(ArNetPacket *packet)
+void ArClientHandlerConfig::handleSetConfigBySectionsV2(ArNetPacket *packet)
 {
   IFDEBUG(ArLog::log(ArLog::Normal,
                      "ArClientHandlerConfig::handleSetConfigBySectionsV2()"));
@@ -901,7 +921,7 @@ AREXPORT bool ArClientHandlerConfig::requestSectionDefaults(
 
 
 
-AREXPORT void ArClientHandlerConfig::handleGetConfigDefaults(
+void ArClientHandlerConfig::handleGetConfigDefaults(
 	ArNetPacket *packet)
 {
   ArLog::log(ArLog::Normal, "%sreceived default config %s", 
@@ -1101,7 +1121,7 @@ AREXPORT void ArClientHandlerConfig::remGotLastEditablePriorityCB
 } // end method remGotLastEditablePriorityCB
 
 
-AREXPORT void ArClientHandlerConfig::handleGetLastEditablePriority
+void ArClientHandlerConfig::handleGetLastEditablePriority
                                                     (ArNetPacket *packet)
 {
 

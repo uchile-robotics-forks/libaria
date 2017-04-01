@@ -1,8 +1,9 @@
 """
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -23,6 +24,8 @@ Adept MobileRobots for information about a commercial version of ARIA at
 robots@mobilerobots.com or 
 Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 """
+
+from __future__ import division # For correct float division in Python 2
 from AriaPy import *
 import sys
 
@@ -88,20 +91,16 @@ constantVelocity = ArActionConstantVelocity("Constant Velocity", 400)
 
 robot.addRangeDevice(sonar)
 
-if not con.connectRobot(robot):
-  print "Could not connect to the robot."
-  Aria_exit(2)
+
 print "Connected to the robot. (Press Ctrl-C to exit)"
 
-
-# turn on the motors, turn off amigobot sounds
-robot.comInt(ArCommands.ENABLE, 1)
-robot.comInt(ArCommands.SOUNDTOG, 0)
 
 # add the wander actions
 robot.addAction(recover, 100)
 robot.addAction(aFront, 50)
 robot.addAction(constantVelocity, 25)
+
+robot.enableMotors()
 
 # Start the robot process cycle running. Each cycle, it calls the robot's
 # tasks. When the PrintingTask was created above, it added a new
@@ -111,3 +110,4 @@ robot.run(1)
 
 print "Disconnected. Goodbye."
 
+Aria.exit(0)

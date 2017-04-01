@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -35,7 +36,8 @@ Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 #include "ariaInternal.h"
 
 
-ArNetServer::ArNetServer(bool addAriaExitCB, bool doNotAddShutdownServer) :
+ArNetServer::ArNetServer(bool addAriaExitCB, bool doNotAddShutdownServer,
+			 const char *name, ArNetServer *childServer) :
   myTaskCB(this, &ArNetServer::runOnce),
   myHelpCB(this, &ArNetServer::internalHelp),
   myEchoCB(this, &ArNetServer::internalEcho),
@@ -43,7 +45,12 @@ ArNetServer::ArNetServer(bool addAriaExitCB, bool doNotAddShutdownServer) :
   myShutdownServerCB(this, &ArNetServer::internalShutdownServer),
   myAriaExitCB(this, &ArNetServer::close)
 {
-  myMutex.setLogName("ArNetServer::myMutex");
+  if (name != NULL)
+    myName = name;
+  else
+    myName = "ArNetServer";
+  myChildServer = childServer;
+  myMutex.setLogName((myName + "::myMutex").c_str());
   myRobot = NULL;
   myPort = 0;
   myMultipleClients = false;
@@ -60,9 +67,10 @@ ArNetServer::ArNetServer(bool addAriaExitCB, bool doNotAddShutdownServer) :
   if (!doNotAddShutdownServer)
     addCommand("shutdownServer", &myShutdownServerCB, "shuts down the server");
 
-  myNextCycleSendsMutex.setLogName("ArNetServer::myNextCycleSendsMutex");
+  myMutex.setLogName((myName + "::myMutex").c_str());
+  myNextCycleSendsMutex.setLogName((myName + "::myNextCycleSendsMutex").c_str());
   
-  myAriaExitCB.setName("ArNetServerExit");
+  myAriaExitCB.setName((myName + "::ariaExit").c_str());
   if (addAriaExitCB)
     Aria::addExitCallback(&myAriaExitCB, 40);
 }
@@ -112,7 +120,8 @@ AREXPORT bool ArNetServer::open(ArRobot *robot, unsigned int port,
 
   if (myOpened)
   {
-    ArLog::log(ArLog::Terse, "ArNetServer already inited, cannot reinit");
+    ArLog::log(ArLog::Terse, "%s already inited, cannot reinit",
+	       myName.c_str());
     return false;
   }
 
@@ -127,16 +136,17 @@ AREXPORT bool ArNetServer::open(ArRobot *robot, unsigned int port,
     //myServerSocket.setLinger(0);
     myServerSocket.setNonBlock();
     if (openOnIP != NULL)
-      ArLog::log(ArLog::Normal, "ArNetServer opened on port %d on ip %s.", 
-		 myPort, openOnIP);
+      ArLog::log(ArLog::Normal, "%s opened on port %d on ip %s.", 
+		 myName.c_str(), myPort, openOnIP);
     else
-      ArLog::log(ArLog::Normal, "ArNetServer opened on port %d.", myPort);
+      ArLog::log(ArLog::Normal, "%s opened on port %d.", 
+		 myName.c_str(), myPort);
     myOpened = true;
   }
   else
   {
-    ArLog::log(ArLog::Terse, "ArNetServer failed to open: %s", 
-	       myServerSocket.getErrorStr().c_str());
+    ArLog::log(ArLog::Terse, "%s failed to open: %s", 
+	       myName.c_str(), myServerSocket.getErrorStr().c_str());
     myOpened = false;
     return false;
   }
@@ -148,7 +158,7 @@ AREXPORT bool ArNetServer::open(ArRobot *robot, unsigned int port,
     if (proc == NULL)
     {
       // toss in a netserver (it used to say the port name, but did it wrong so put in gibberish)
-      taskName = "TextServer";
+      taskName = myName; 
       rootTask->addNewLeaf(taskName.c_str(), 60, &myTaskCB, NULL);
     }
   }
@@ -165,16 +175,22 @@ AREXPORT bool ArNetServer::addCommand(const char *command,
 			      ArFunctor3<char **, int, ArSocket *> *functor,
 				      const char *help)
 {
+  if (myChildServer != NULL)
+    myChildServer->addCommand(command, functor, help); 
+
   std::map<std::string, ArFunctor3<char **, int, ArSocket *> *, ArStrCaseCmpOp>::iterator it;
+
 
   if ((it = myFunctorMap.find(command)) != myFunctorMap.end())
   {
-    ArLog::log(ArLog::Normal, "ArNetServer::addCommand: Already a command for %s", command);
+    ArLog::log(ArLog::Normal, "%s::addCommand: Already a command for %s", myName.c_str(), command);
     return false;
   }
 
   myFunctorMap[command] = functor;
   myHelpMap[command] = help;
+
+
   return true;
 }
 
@@ -184,10 +200,14 @@ AREXPORT bool ArNetServer::addCommand(const char *command,
 **/
 AREXPORT bool ArNetServer::remCommand(const char *command)
 {
+  if (myChildServer != NULL)
+    myChildServer->remCommand(command);
+
   if (myFunctorMap.find(command) == myFunctorMap.end())
   {
     return false;
   }
+
   myFunctorMap.erase(command);
   myHelpMap.erase(command);
   return true;  
@@ -196,10 +216,16 @@ AREXPORT bool ArNetServer::remCommand(const char *command)
 
 AREXPORT void ArNetServer::sendToAllClientsPlain(const char *str)
 {
+  if (myChildServer != NULL)
+
+
+    myChildServer->sendToAllClientsPlain(str);
+
   std::list<ArSocket *>::iterator it;
 
   if (myLoggingDataSent)
-    ArLog::log(ArLog::Terse, "ArNetServer::sendToAllClients: Sending %s", str);
+    ArLog::log(ArLog::Terse, "%s::sendToAllClients: Sending %s", 
+	       myName.c_str(), str);
 
   for (it = myConns.begin(); it != myConns.end(); ++it)
   {
@@ -230,16 +256,24 @@ AREXPORT void ArNetServer::sendToAllClients(const char *str, ...)
 
 AREXPORT void ArNetServer::sendToAllClientsNextCyclePlain(const char *str)
 {
+  if (myChildServer != NULL)
+    myChildServer->sendToAllClientsNextCyclePlain(str);
+
   std::list<ArSocket *>::iterator it;
 
   if (myLoggingDataSent)
-    ArLog::log(ArLog::Terse, "ArNetServer::sendToAllClientsNextCycle: Next cycle will send: %s", str);
+    ArLog::log(ArLog::Terse, "%s::sendToAllClientsNextCycle: Next cycle will send: %s", myName.c_str(), str);
 
   myNextCycleSendsMutex.lock();
   myNextCycleSends.push_back(str);
   myNextCycleSendsMutex.unlock();
 }
 
+AREXPORT bool ArNetServer::sendToAllClientsNextCyclePlainBool(const char *str)
+{
+  sendToAllClientsNextCyclePlain(str);
+  return true;
+}
 
 /**
    This sends the given string to all the clients, this string cannot
@@ -270,6 +304,9 @@ AREXPORT bool ArNetServer::isOpen(void)
 **/
 AREXPORT void ArNetServer::setLoggingDataSent(bool loggingData)
 {
+  if (myChildServer != NULL)
+    myChildServer->setLoggingDataSent(loggingData);
+
   myLoggingDataSent = loggingData;
   std::list<ArSocket *>::iterator it;
   for (it = myConnectingConns.begin(); it != myConnectingConns.end(); ++it)
@@ -293,6 +330,9 @@ AREXPORT bool ArNetServer::getLoggingDataSent(void)
 **/
 AREXPORT void ArNetServer::setLoggingDataReceived(bool loggingData)
 {
+  if (myChildServer != NULL)
+    myChildServer->setLoggingDataReceived(loggingData);
+
   myLoggingDataReceived = loggingData;
 }
 
@@ -315,6 +355,9 @@ AREXPORT bool ArNetServer::getLoggingDataReceived(void)
 **/
 AREXPORT void ArNetServer::setUseWrongEndChars(bool useWrongEndChars)
 {
+  if (myChildServer != NULL)
+    myChildServer->setUseWrongEndChars(useWrongEndChars);
+
   myUseWrongEndChars = useWrongEndChars;
   std::list<ArSocket *>::iterator it;
   for (it = myConnectingConns.begin(); it != myConnectingConns.end(); ++it)
@@ -375,7 +418,7 @@ AREXPORT void ArNetServer::runOnce(void)
       myAcceptingSocket.writeString(
 	      "Only client allowed and it is already connected.");
       myAcceptingSocket.close();
-      ArLog::log(ArLog::Terse, "ArNetServer not taking multiple clients and another client tried to connect from %s.", myAcceptingSocket.getIPString());
+      ArLog::log(ArLog::Terse, "%s not taking multiple clients and another client tried to connect from %s.", myName.c_str(), myAcceptingSocket.getIPString());
     }
     else 
     {
@@ -385,12 +428,24 @@ AREXPORT void ArNetServer::runOnce(void)
       socket->setLogWriteStrings(myLoggingDataSent);
       socket->setStringUseWrongEndChars(myUseWrongEndChars);
       socket->transfer(&myAcceptingSocket);
-      socket->writeString("Enter password:");
+      socket->setIPString((myName + "::" + socket->getIPString()).c_str());
       socket->setNonBlock();
-      myConnectingConns.push_front(socket);
-      ArLog::log(ArLog::Normal, 
-		 "Client connecting from %s.",
-		 socket->getIPString());
+      if (!myPassword.empty())
+      {
+	socket->writeString("Enter password:");
+	myConnectingConns.push_front(socket);
+	ArLog::log(ArLog::Normal, 
+		   "%s: Client connecting from %s.",
+		   myName.c_str(), socket->getIPString());
+      }
+      else
+      {
+	ArLog::log(ArLog::Normal, 
+		   "%s: Client from %s connected (with no password required).",
+		   myName.c_str(), socket->getIPString());
+	myConns.push_front(socket);
+	internalGreeting(socket);
+      }
     }
   }
 
@@ -408,8 +463,8 @@ AREXPORT void ArNetServer::runOnce(void)
       if (myPassword == str)
       {
 	ArLog::log(ArLog::Normal, 
-		   "Client from %s gave password and connected.",
-		   socket->getIPString());
+		   "%s: Client from %s gave password and connected.",
+		   myName.c_str(), socket->getIPString());
 	myConns.push_front(socket);
 	removeList.push_front(socket);
 	internalGreeting(socket);
@@ -419,15 +474,16 @@ AREXPORT void ArNetServer::runOnce(void)
 	socket->close();
 	myDeleteList.push_front(socket);
 	ArLog::log(ArLog::Terse, 
-		   "Client from %s gave wrong password and is being disconnected.", 
-		   socket->getIPString());
+		   "%s: Client from %s gave wrong password and is being disconnected.", 
+		   myName.c_str(), socket->getIPString());
       }
     }
     // if we couldn't read a string it means we lost a connection
     else
     {
       ArLog::log(ArLog::Normal, 
-		 "Connection to %s lost.", socket->getIPString());
+		 "%s: Connection to %s lost.", 
+		 myName.c_str(), socket->getIPString());
       socket->close();
       myDeleteList.push_front(socket);
     }
@@ -459,7 +515,7 @@ AREXPORT void ArNetServer::runOnce(void)
       socket->setLogWriteStrings(false);
 
       if (myLoggingDataSent)
-	ArLog::log(ArLog::Terse, "ArNetServer::sendToAllClientsNextCycle: Sending: %s", (*ncsIt).c_str());
+	ArLog::log(ArLog::Terse, "%s::sendToAllClientsNextCycle: Sending: %s", myName.c_str(), (*ncsIt).c_str());
       socket->writeString((*ncsIt).c_str());
       
       socket->setLogWriteStrings(myLoggingDataSent);
@@ -491,7 +547,8 @@ AREXPORT void ArNetServer::runOnce(void)
     if (str == NULL)
     {
       ArLog::log(ArLog::Normal, 
-		 "Connection to %s lost.", socket->getIPString());
+		 "%s: Connection to %s lost.", myName.c_str(), 
+		 socket->getIPString());
       socket->close();
       myDeleteList.push_front(socket);
     }
@@ -527,7 +584,7 @@ AREXPORT void ArNetServer::close(void)
   if (!myOpened)
     return;
   myWantToClose = false;
-  ArLog::log(ArLog::Normal, "ArNetServer shutting down server.");
+  ArLog::log(ArLog::Normal, "%s shutting down server.", myName.c_str());
   sendToAllClients("Shutting down server");
   for (it = myConnectingConns.begin(); it != myConnectingConns.end(); ++it)
   {
@@ -613,7 +670,8 @@ AREXPORT void ArNetServer::internalQuit(char **argv, int argc,
   socket->writeString("Closing connection");
 
   myDeleteList.push_front(socket);
-  ArLog::log(ArLog::Normal, "Client from %s quit.", socket->getIPString());
+  ArLog::log(ArLog::Normal, "%s: Client from %s quit.", 
+	     myName.c_str(), socket->getIPString());
 }
 
 AREXPORT void ArNetServer::internalShutdownServer(char **argv, int argc, 
@@ -635,8 +693,8 @@ AREXPORT void ArNetServer::parseCommandOnSocket(ArArgumentBuilder *args,
   int argc;
 
   if (myLoggingDataReceived && !mySquelchNormal && allowLog)
-    ArLog::log(ArLog::Normal, "Command received from %s: %s",
-	       socket->getIPString(), args->getFullString());
+    ArLog::log(ArLog::Normal, "%s: Command received from %s: %s",
+	       myName.c_str(), socket->getIPString(), args->getFullString());
   else if (myLoggingDataReceived && mySquelchNormal && allowLog)
     ArLog::log(ArLog::Normal, "%s: %s",
 	       socket->getIPString(), args->getFullString());
@@ -693,7 +751,7 @@ AREXPORT void ArNetServer::sendToClientPlain(
     {
       if (myLoggingDataSent)
 	ArLog::log(ArLog::Terse, 
-		   "ArNetServer::sendToClient: Sending '%s' to %s", str,
+		   "%s::sendToClient: Sending '%s' to %s", myName.c_str(), str,
 		   ipString);
       (*it)->setLogWriteStrings(false);
       (*it)->writeString(str);
@@ -718,3 +776,4 @@ AREXPORT void ArNetServer::sendToClient(ArSocket *socket, const char *ipString,
   
   va_end(ptr);
 }
+

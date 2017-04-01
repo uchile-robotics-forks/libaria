@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -186,6 +187,13 @@ AREXPORT bool ArRobotConfigPacketReader::packetHandler(ArRobotPacket *packet)
   myStateOfChargeLow = packet->bufToUByte2();
   myStateOfChargeShutdown = packet->bufToUByte2();
 
+  packet->bufToStr(buf, sizeof(buf));
+  myFirmwareBootloaderVersion = buf;
+
+  myConfigFlags = packet->bufToUByte4();
+
+  myGyroFWVersion = packet->bufToByte2();
+
   if (myPacketArrivedCB != NULL)
   {
     myPacketArrivedCB->invoke();
@@ -227,6 +235,28 @@ AREXPORT std::string ArRobotConfigPacketReader::buildString(void) const
   sprintf(line, "firmware version '%s'\n",
 	  getFirmwareVersion());
   ret += line;
+  sprintf(line, "firmware bootloader version '%s'\n",
+	  getFirmwareBootloaderVersion());
+  ret += line;
+
+   sprintf(line, "gyro firmware version %d\n",
+	  getGyroFWVersion());
+
+  ret += line;
+  int flags = getConfigFlags();
+  
+  sprintf(line, "configFlags 0x%08x\n", flags);
+  ret += line;
+
+  sprintf(line, "\t(IsBootloader=%d, CanDownloadMTXFirmware=%d, CanDownloadMTXBootloader=%d, NotLegacyGyro=%d, MTXConfigSystem=%d)\n",
+    (flags & ArUtil::BIT0), 
+    (flags & ArUtil::BIT1), 
+    (flags & ArUtil::BIT2), 
+    (flags & ArUtil::BIT3), 
+    (flags & ArUtil::BIT4)
+  );
+  ret += line;
+
   sprintf(line, "Intrinsic properties and unsettable maxes:\n");
   ret += line;
   sprintf(line, "TransVelTop %d TransAccelTop %d\n", 

@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -47,14 +48,7 @@ Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
  * 
  * If FOR_ARIA is defined, then the classes whose options are included are:
  *   ArRobotConnector
- *   ArLaserConnector with Sick LMS2xx
- *   ArLaserConnector with Sick LMS1xx
- *   ArLaserConnector with URG 1.0
- *   ArLaserConnector with URG 2.0
- *   ArLaserConnector with LMS5xx
- *   ArLaserConnector with SICK S3xxx Series
- *   ArLaserConnector with Keyence SZ Series
- *   ArLaserConnector with SICK TiM3XX
+ *   ArLaserConnector with each laser type
  *   ArPTZConnector
  *   ArGPSConnector
  *   ArCompassConnector
@@ -130,12 +124,20 @@ class ArLaserConnectorWrapper :
   ArS3Series s3xxLaser;
   ArSZSeries szLaser;
   ArLMS1XX tim3xxLaser;
+  ArLMS1XX tim551Laser;
+  ArLMS1XX tim561Laser;
+  ArLMS1XX tim571Laser;
 public:
   ArLaserConnectorWrapper(ArArgumentParser *argParser) :
     ArLaserConnector(argParser, NULL, NULL),
-    lms2xxLaser(1), urgLaser(1), urg2Laser(1), lms1xxLaser(1, "lms1xx", ArLMS1XX::LMS1XX),
-    lms5xxLaser(1, "lms5xx", ArLMS1XX::LMS5XX), s3xxLaser(1), szLaser(1),
-    tim3xxLaser(1, "tim3XX", ArLMS1XX::TiM3XX)
+    lms2xxLaser(1), urgLaser(1), urg2Laser(1), 
+    lms1xxLaser(1, "lms1XX", ArLMS1XX::LMS1XX),
+    lms5xxLaser(1, "lms5xx", ArLMS1XX::LMS5XX), 
+    s3xxLaser(1), szLaser(1),
+    tim3xxLaser(1, "tim3XX", ArLMS1XX::TiM3XX),
+    tim551Laser(1, "tim551", ArLMS1XX::TiM551),
+    tim561Laser(1, "tim561", ArLMS1XX::TiM561),
+    tim571Laser(1, "tim571", ArLMS1XX::TiM571)
   {
   }
   virtual void logOptions()
@@ -199,9 +201,25 @@ public:
     ArLaserConnector::logLaserOptions(myLasers[1], false, false);
 
     // TiM3xx
-    puts("\nFor laser type \"tim3XX\" (SICK TiM300):\n");
+    puts("\nFor laser type \"tim510\" or \"tim3XX\" (SICK TiM310 and TiM510):\n");
     addPlaceholderLaser(&tim3xxLaser, 1); // replace previous
     ArLaserConnector::logLaserOptions(myLasers[1], false, false);
+
+    // TiM551
+    puts("\nFor laser type \"tim551\" (SICK TiM551):\n");
+    addPlaceholderLaser(&tim551Laser, 1); // replace previous
+    ArLaserConnector::logLaserOptions(myLasers[1], false, false);
+
+    // TiM561
+    puts("\nFor laser type \"tim561\" (SICK TiM561):\n");
+    addPlaceholderLaser(&tim551Laser, 1); // replace previous
+    ArLaserConnector::logLaserOptions(myLasers[1], false, false);
+
+    // TiM571
+    puts("\nFor laser type \"tim571\" (SICK TiM571):\n");
+    addPlaceholderLaser(&tim571Laser, 1); // replace previous
+    ArLaserConnector::logLaserOptions(myLasers[1], false, false);
+
   }
 };
 
@@ -235,20 +253,36 @@ public:
   }
 };
 
-class ArSonarConnectorWrapper:
-  public ArSonarConnector,
-  public virtual Wrapper
+class ArSonarConnectorWrapper: public ArSonarConnector, public virtual Wrapper
 {
 public:
   ArSonarConnectorWrapper(ArArgumentParser *argParser) :
-    ArSonarConnector(argParser, NULL, NULL)
-  {
-  }
-  virtual void logOptions()
-  {
+    ArSonarConnector(argParser, NULL, NULL) { }
+  virtual void logOptions() {
     ArSonarConnector::logOptions();
   }
 };
+
+class ArBatteryConnectorWrapper: public ArBatteryConnector, public virtual Wrapper
+{
+public:
+  ArBatteryConnectorWrapper(ArArgumentParser *argParser) :
+    ArBatteryConnector(argParser, NULL, NULL) { }
+  virtual void logOptions() {
+    ArBatteryConnector::logOptions();
+  }
+};
+
+class ArLCDConnectorWrapper: public ArLCDConnector, public virtual Wrapper
+{
+public:
+  ArLCDConnectorWrapper(ArArgumentParser *argParser) :
+    ArLCDConnector(argParser, NULL, NULL) { }
+  virtual void logOptions() {
+    ArLCDConnector::logOptions();
+  }
+};
+
 #endif
 
 #ifdef FOR_ARNETWORKING
@@ -337,6 +371,8 @@ int main(int argc, char **argv)
   wrappers.push_back(WrapPair("ArGPSConnector", new ArGPSConnectorWrapper(&argParser)));
   wrappers.push_back(WrapPair("ArCompassConnector", new ArCompassConnectorWrapper(&argParser)));
   wrappers.push_back(WrapPair("ArSonarConnector", new ArSonarConnectorWrapper(&argParser)));
+  wrappers.push_back(WrapPair("ArBatteryConnector", new ArBatteryConnectorWrapper(&argParser)));
+  wrappers.push_back(WrapPair("ArLCDConnector", new ArLCDConnectorWrapper(&argParser)));
 #endif
 
 #ifdef FOR_ARNETWORKING
@@ -356,9 +392,9 @@ int main(int argc, char **argv)
   // beginning of line, add </dt><dd> at first \t, then add </dt> at end.
   for(WrapList::const_iterator i = wrappers.begin(); i != wrappers.end(); ++i)
   {
-    printf("@section %s\n\n(See %s for class documentation)\n\n<pre>", (*i).first.c_str(), (*i).first.c_str());
+    printf("@section %s\n\n(See %s for class documentation)\n\n@verbatim\n", (*i).first.c_str(), (*i).first.c_str());
     (*i).second->logOptions();
-    puts("</pre>\n");
+    puts("@endverbatim\n");
     fprintf(stderr, "genCommandLineOptionDocs: Added %s to docs/options/all_options.dox\n", (*i).first.c_str());
   }
   puts("*/");

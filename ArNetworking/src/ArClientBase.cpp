@@ -17,8 +17,8 @@
 AREXPORT ArClientBase::ArClientBase() :
   myLogPrefix(""),
   myProcessPacketCB(this, &ArClientBase::processPacket, NULL, true),
-  myProcessPacketUdpCB(this, &ArClientBase::processPacketUdp)
-
+  myProcessPacketUdpCB(this, &ArClientBase::processPacketUdp),
+  myHost(""), myPort(-1)
 {
   myDataMutex.setLogName("ArClientBase::myDataMutex");
   myClientMutex.setLogName("ArClientBase::myClientMutex");
@@ -282,6 +282,7 @@ ArClientBase::internalNonBlockingConnectStart(
   myStartedConnection.setToNow();
   
   myHost = host;
+  myPort = port;
   myQuiet = !log;
   myTcpReceiver.setQuiet(myQuiet);
   if (user != NULL)
@@ -1275,8 +1276,8 @@ void ArClientBase::buildList(ArNetPacket *packet)
   unsigned int command;
   char name[512];
   char description[512];
-  char argDesc[512];
-  char retDesc[512];
+  char argDesc[1024];
+  char retDesc[1024];
   char commandGroup[512];
   char dataFlags[512];
 
@@ -1287,7 +1288,7 @@ void ArClientBase::buildList(ArNetPacket *packet)
     packet->bufToStr(name, sizeof(name));
     packet->bufToStr(description, sizeof(description));
     clientData = new ArClientData(name, description, command, NULL);
-    ArLog::log(myVerboseLogLevel, 
+     ArLog::log(myVerboseLogLevel, 
 	       "%sNew entry number %d for data %s with description %s", 
 	       myLogPrefix.c_str(), command, name, description);
     if (myIntDataMap.find(command) != myIntDataMap.end())
@@ -1653,10 +1654,20 @@ parameters or arguments along with the request.
 AREXPORT bool ArClientBase::request(const char *name, long mSec, 
 				    ArNetPacket *packet)
 {
+  unsigned int command = findCommandFromName(name);
+
+  if (command == 0)
+  {
+    ArLog::log(ArLog::Normal, 
+	       "%sRequesting data for \"%s\", but it doesn't exist", 
+	       myLogPrefix.c_str(), name);
+    return false;
+  }
+  
   ArLog::log(myVerboseLogLevel, 
              "%sRequesting data for \"%s\"", 
              myLogPrefix.c_str(), name);
-  return requestByCommand(findCommandFromName(name), mSec, packet);
+  return requestByCommand(command, mSec, packet);
 }
 
 /**
@@ -1825,26 +1836,81 @@ AREXPORT bool ArClientBase::requestOnceByCommandUdp(unsigned int command,
 AREXPORT bool ArClientBase::requestOnceWithString(const char *name, 
 						  const char *str)
 {
-  std::map<std::string, unsigned int>::iterator it;
-
-  myMapsMutex.lock();
-  if ((it = myNameIntMap.find(name)) == myNameIntMap.end())
+  unsigned int command = findCommandFromName(name);
+  if(command == 0)
   {
     ArLog::log(ArLog::Normal, 
        "%sRequesting data for \"%s\" but no data with that name exists", 
 	       myLogPrefix.c_str(), name);
-    myMapsMutex.unlock();
+    //myMapsMutex.unlock();
     return false;
   }
-  myMapsMutex.unlock();
+
   ArLog::log(myVerboseLogLevel, 
-             "%sRequesting data once for \"%s\"", 
-             myLogPrefix.c_str(), name);
+             "%sRequesting data once for \"%s\" [%s]", 
+             myLogPrefix.c_str(), name, str);
   
   ArNetPacket tempPacket;
   tempPacket.strToBuf(str);
-  tempPacket.setCommand((*it).second);
+  tempPacket.setCommand(command);
   return sendPacketTcp(&tempPacket);
+}
+
+AREXPORT bool ArClientBase::requestOnceWithInt16(const char *name, ArTypes::Byte2 val)
+{
+  unsigned int command = findCommandFromName(name);
+  if(command == 0)
+  {
+    ArLog::log(ArLog::Normal, 
+       "%sRequesting data for \"%s\" but no data with that name exists", 
+	       myLogPrefix.c_str(), name);
+    return false;
+  }
+  ArLog::log(myVerboseLogLevel, 
+             "%sRequesting data once for \"%s\" [%d]", 
+             myLogPrefix.c_str(), name, val);
+  ArNetPacket p;
+  p.byte2ToBuf(val);
+  p.setCommand(command);
+  return sendPacketTcp(&p);
+}
+
+AREXPORT bool ArClientBase::requestOnceWithInt32(const char *name, ArTypes::Byte4 val)
+{
+  unsigned int command = findCommandFromName(name);
+  if(command == 0)
+  {
+    ArLog::log(ArLog::Normal, 
+       "%sRequesting data for \"%s\" but no data with that name exists", 
+	       myLogPrefix.c_str(), name);
+    return false;
+  }
+  ArLog::log(myVerboseLogLevel, 
+             "%sRequesting data once for \"%s\" [%d]", 
+             myLogPrefix.c_str(), name, val);
+  ArNetPacket p;
+  p.byte4ToBuf(val);
+  p.setCommand(command);
+  return sendPacketTcp(&p);
+}
+
+AREXPORT bool ArClientBase::requestOnceWithDouble(const char *name, double val)
+{
+  unsigned int command = findCommandFromName(name);
+  if(command == 0)
+  {
+    ArLog::log(ArLog::Normal, 
+       "%sRequesting data for \"%s\" but no data with that name exists", 
+	       myLogPrefix.c_str(), name);
+    return false;
+  }
+  ArLog::log(myVerboseLogLevel, 
+             "%sRequesting data once for \"%s\" [%f]", 
+             myLogPrefix.c_str(), name, val);
+  ArNetPacket p;
+  p.doubleToBuf(val);
+  p.setCommand(command);
+  return sendPacketTcp(&p);
 }
 
 /**

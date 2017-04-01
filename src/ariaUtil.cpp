@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -81,13 +82,15 @@ AREXPORT const char *ArUtil::COM6 = "COM6";
 AREXPORT const char *ArUtil::COM7 = "COM7";
 AREXPORT const char *ArUtil::COM8 = "COM8";
 AREXPORT const char *ArUtil::COM9 = "COM9";
-AREXPORT const char *ArUtil::COM10 = "COM10";
-AREXPORT const char *ArUtil::COM11 = "COM11";
-AREXPORT const char *ArUtil::COM12 = "COM12";
-AREXPORT const char *ArUtil::COM13 = "COM13";
-AREXPORT const char *ArUtil::COM14 = "COM14";
-AREXPORT const char *ArUtil::COM15 = "COM15";
-AREXPORT const char *ArUtil::COM16 = "COM16";
+AREXPORT const char *ArUtil::COM10 = "\\\\.\\COM10";
+AREXPORT const char *ArUtil::COM11 = "\\\\.\\COM11";
+AREXPORT const char *ArUtil::COM12 = "\\\\.\\COM12";
+AREXPORT const char *ArUtil::COM13 = "\\\\.\\COM13";
+AREXPORT const char *ArUtil::COM14 = "\\\\.\\COM14";
+AREXPORT const char *ArUtil::COM15 = "\\\\.\\COM15";
+AREXPORT const char *ArUtil::COM16 = "\\\\.\\COM16";
+// See http://support.microsoft.com/kb/115831 for explanation of port names for
+// COM10 and up.
 #else // ifndef WIN32
 AREXPORT const char *ArUtil::COM1 = "/dev/ttyS0";
 AREXPORT const char *ArUtil::COM2 = "/dev/ttyS1";
@@ -437,6 +440,46 @@ AREXPORT bool ArUtil::stripQuotes(std::string *strToStrip)
                
 } // end method stripQuotes
 
+/**
+ * This method strips out bad characters
+**/  
+AREXPORT bool ArUtil::fixBadCharacters(
+	std::string *strToStrip, bool removeSpaces, bool fixOtherWhiteSpace)
+{
+  if (strToStrip == NULL) {
+    ArLog::log(ArLog::Normal,
+               "ArUtil::fixBadCharacters() NULL string");
+    return false;
+  }
+  
+  // The .length() isn't guaranteed to be O(1) (it could be O(n)) but
+  // it's not usually O(1).... and hopefully this isn't called that
+  // often (the original place was the identifer, which is once at
+  // startup)... most of the other solutions I've seen are way more
+  // complicated
+  for (size_t i = 0; i < (*strToStrip).length(); i++)
+  {
+    if (!removeSpaces && (*strToStrip)[i] == ' ')
+      continue;
+    else if (!removeSpaces && fixOtherWhiteSpace && isspace((*strToStrip)[i]))
+      (*strToStrip)[i] = ' ';
+    else if ((*strToStrip)[i] == '(' || (*strToStrip)[i] == '{')
+      (*strToStrip)[i] = '[';
+    else if ((*strToStrip)[i] == ')' || (*strToStrip)[i] == '}')
+      (*strToStrip)[i] = ']';
+    else if (isalpha((*strToStrip)[i]) || isdigit((*strToStrip)[i]) || 
+	     (*strToStrip)[i] == '.' || (*strToStrip)[i] == '_' || 
+	     (*strToStrip)[i] == '-' || (*strToStrip)[i] == '+' || 
+	     (*strToStrip)[i] == '[' || (*strToStrip)[i] == ']')
+      continue;
+    else
+      (*strToStrip)[i] = '-';
+  }
+
+  return true;
+               
+} // end method stripQuotes
+
 /** Append a directory separator character to the given path string, depending on the
  * platform.  On Windows, a backslash ('\\') is added. On other platforms, a 
  * forward slash ('/') is appended. If there is no more allocated space in the
@@ -585,7 +628,7 @@ AREXPORT void ArUtil::addDirectories(char *dest, size_t destLength,
     @return an integer less than, equal to, or greater than zero if str is 
     found, respectively, to be less than, to match, or be greater than str2.
 */
-AREXPORT int ArUtil::strcmp(std::string str, std::string str2)
+AREXPORT int ArUtil::strcmp(const std::string &str, const std::string &str2)
 {
   return ::strcmp(str.c_str(), str2.c_str());
 }
@@ -601,9 +644,14 @@ AREXPORT int ArUtil::strcmp(std::string str, std::string str2)
     @return an integer less than, equal to, or greater than zero if str is 
     found, respectively, to be less than, to match, or be greater than str2.
 */
-AREXPORT int ArUtil::strcmp(std::string str, const char *str2)
+AREXPORT int ArUtil::strcmp(const std::string &str, const char *str2)
 {
-  return ::strcmp(str.c_str(), str2);
+  if (str2 != NULL) {
+    return ::strcmp(str.c_str(), str2);
+  }
+  else {
+    return 1;
+  }
 }
 
 /** 
@@ -617,9 +665,14 @@ AREXPORT int ArUtil::strcmp(std::string str, const char *str2)
     @return an integer less than, equal to, or greater than zero if str is 
     found, respectively, to be less than, to match, or be greater than str2.
 */
-AREXPORT int ArUtil::strcmp(const char *str, std::string str2)
+AREXPORT int ArUtil::strcmp(const char *str, const std::string &str2)
 {
-  return ::strcmp(str, str2.c_str());
+  if (str != NULL) {
+    return ::strcmp(str, str2.c_str());
+  }
+  else {
+    return -1;
+  }
 }
 
 /** 
@@ -633,7 +686,18 @@ AREXPORT int ArUtil::strcmp(const char *str, std::string str2)
 */
 AREXPORT int ArUtil::strcmp(const char *str, const char *str2)
 {
-  return ::strcmp(str, str2);
+  if ((str != NULL) && (str2 != NULL)) {
+    return ::strcmp(str, str2);
+  }
+  else if ((str == NULL) && (str2 == NULL)) {
+    return 0;
+  }
+  else if (str == NULL) {
+    return -1;
+  }
+  else { // str2 == NULL
+    return 1;
+  }
 }
 
 
@@ -645,7 +709,8 @@ AREXPORT int ArUtil::strcmp(const char *str, const char *str2)
     compare @return an integer less than, equal to, or greater than
     zero if str is found, respectively, to be less than, to match, or
     be greater than str2.  */
-AREXPORT int ArUtil::strcasecmp(std::string str, std::string str2)
+AREXPORT int ArUtil::strcasecmp(const std::string &str, 
+                                const std::string &str2)
 {
   return ::strcasecmp(str.c_str(), str2.c_str());
 }
@@ -658,9 +723,14 @@ AREXPORT int ArUtil::strcasecmp(std::string str, std::string str2)
     compare @return an integer less than, equal to, or greater than
     zero if str is found, respectively, to be less than, to match, or
     be greater than str2.  */
-AREXPORT int ArUtil::strcasecmp(std::string str, const char *str2)
+AREXPORT int ArUtil::strcasecmp(const std::string &str, const char *str2)
 {
-  return ::strcasecmp(str.c_str(), str2);
+  if (str2 != NULL) {
+    return ::strcasecmp(str.c_str(), str2);
+  }
+  else {
+    return 1;
+  }
 }
 
 /** 
@@ -671,9 +741,14 @@ AREXPORT int ArUtil::strcasecmp(std::string str, const char *str2)
     compare @return an integer less than, equal to, or greater than
     zero if str is found, respectively, to be less than, to match, or
     be greater than str2.  */
-AREXPORT int ArUtil::strcasecmp(const char *str, std::string str2)
+AREXPORT int ArUtil::strcasecmp(const char *str, const std::string &str2)
 {
-  return ::strcasecmp(str, str2.c_str());
+  if (str != NULL) {
+    return ::strcasecmp(str, str2.c_str());
+  }
+  else {
+    return -1;
+  }
 }
 
 /** 
@@ -686,7 +761,18 @@ AREXPORT int ArUtil::strcasecmp(const char *str, std::string str2)
     be greater than str2.  */
 AREXPORT int ArUtil::strcasecmp(const char *str, const char *str2)
 {
-  return ::strcasecmp(str, str2);
+  if ((str != NULL) && (str2 != NULL)) {
+    return ::strcasecmp(str, str2);
+  }
+  else if ((str == NULL) && (str2 == NULL)) {
+    return 0;
+  }
+  else if (str == NULL) {
+    return -1;
+  }
+  else { // str2 == NULL
+    return 1;
+  }
 }
 
 
@@ -896,13 +982,28 @@ AREXPORT double ArUtil::atof(const char *nptr)
 
 
 AREXPORT void ArUtil::functorPrintf(ArFunctor1<const char *> *functor,
-				    char *str, ...)
+				    const char *str, ...)
 {
   char buf[10000];
   va_list ptr;
   va_start(ptr, str);
   //vsprintf(buf, str, ptr);
   vsnprintf(buf, sizeof(buf) - 1, str, ptr);
+  buf[sizeof(buf) - 1] = '\0';
+  functor->invoke(buf);
+  va_end(ptr);
+}
+
+// preserving this old version that takes char* as format str instead of const char* 
+// to maximize compatibility
+AREXPORT void ArUtil::functorPrintf(ArFunctor1<const char *> *functor,
+				    char *str, ...)
+{
+  char buf[10000];
+  va_list ptr;
+  va_start(ptr, str);
+  //vsprintf(buf, str, ptr);
+  vsnprintf(buf, sizeof(buf) - 1, (const char*)str, ptr);
   buf[sizeof(buf) - 1] = '\0';
   functor->invoke(buf);
   va_end(ptr);
@@ -1361,7 +1462,7 @@ AREXPORT void ArDaemonizer::logOptions(void) const
 
 
 std::map<ArPriority::Priority, std::string> ArPriority::ourPriorityNames;
-std::map<std::string, ArPriority::Priority> ArPriority::ourNameToPriorityMap;
+std::map<std::string, ArPriority::Priority, ArStrCaseCmpOp> ArPriority::ourNameToPriorityMap;
 
 std::string ArPriority::ourUnknownPriorityName;
 bool ArPriority::ourStringsInited = false;
@@ -1400,11 +1501,17 @@ AREXPORT const char *ArPriority::getPriorityName(Priority priority)
   }
 }
 
-AREXPORT ArPriority::Priority ArPriority::getPriorityFromName(const char *text)
+AREXPORT ArPriority::Priority ArPriority::getPriorityFromName(const char *text, 
+                                                              bool *ok)
 {
   // This is merely called to initialize the map
   if (!ourStringsInited) {
      getPriorityName(IMPORTANT);
+  }
+   
+  // Assume failure (until successful) 
+  if (ok != NULL) {
+    *ok = false;
   }
 
   if (ArUtil::isStrEmpty(text)) {
@@ -1413,9 +1520,12 @@ AREXPORT ArPriority::Priority ArPriority::getPriorityFromName(const char *text)
     return LAST_PRIORITY;
   }
 
-  std::map<std::string, ArPriority::Priority>::iterator iter = 
+  std::map<std::string, ArPriority::Priority, ArStrCaseCmpOp>::iterator iter = 
                                                   ourNameToPriorityMap.find(text);
   if (iter != ourNameToPriorityMap.end()) {
+    if (ok != NULL) {
+      *ok = true;
+    }
     return iter->second;
   }
   
@@ -2037,6 +2147,11 @@ AREXPORT int ArUtil::open(const char *pathname, int flags, mode_t mode,
   return fd;
 }
 
+AREXPORT int ArUtil::close(int fd)
+{
+	return ::close(fd);
+}
+
 AREXPORT int ArUtil::creat(const char *pathname, mode_t mode, 
 			   bool closeOnExec)
 {
@@ -2069,6 +2184,42 @@ AREXPORT bool ArUtil::floatIsNormal(double f)
 #endif
 }
 
+AREXPORT int ArUtil::atoi(const char *str, bool *ok, bool forceHex) 
+{
+  bool isSuccess = false;
+  int ret = 0;
+
+  // if the argument isn't bogus
+  if (str != NULL) {
+  
+    int base = 10;
+    if (forceHex)
+      base = 16;
+    // see if it has the hex prefix and strip it
+    if (strlen(str) > 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X'))
+    {
+      str = &str[2];
+      base = 16;
+    }
+    char *endPtr = NULL;
+    ret = strtol(str, &endPtr, base);
+ 
+    if (endPtr[0] == '\0' && endPtr != str) {
+      isSuccess = true;
+    }
+  } // end if valid arg
+
+  if (ok != NULL) {
+    *ok = isSuccess;
+  }
+  
+  if (isSuccess) 
+    return ret;
+  else 
+    return 0;
+
+} // end method atoi
+
 
 AREXPORT long ArMath::randomInRange(long m, long n)
 {
@@ -2085,20 +2236,57 @@ AREXPORT long ArMath::getRandMax() { return ourRandMax; }
 
 ArGlobalRetFunctor2<ArLaser *, int, const char *> 
 ArLaserCreatorHelper::ourLMS2xxCB(&ArLaserCreatorHelper::createLMS2xx);
+
 ArGlobalRetFunctor2<ArLaser *, int, const char *> 
 ArLaserCreatorHelper::ourUrgCB(&ArLaserCreatorHelper::createUrg);
+
 ArGlobalRetFunctor2<ArLaser *, int, const char *> 
 ArLaserCreatorHelper::ourLMS1XXCB(&ArLaserCreatorHelper::createLMS1XX);
+
 ArGlobalRetFunctor2<ArLaser *, int, const char *> 
 ArLaserCreatorHelper::ourS3SeriesCB(&ArLaserCreatorHelper::createS3Series);
+
 ArGlobalRetFunctor2<ArLaser *, int, const char *>
 ArLaserCreatorHelper::ourUrg_2_0CB(&ArLaserCreatorHelper::createUrg_2_0);
+
 ArGlobalRetFunctor2<ArLaser *, int, const char *>
 ArLaserCreatorHelper::ourLMS5XXCB(&ArLaserCreatorHelper::createLMS5XX);
+
 ArGlobalRetFunctor2<ArLaser *, int, const char *>
 ArLaserCreatorHelper::ourTiM3XXCB(&ArLaserCreatorHelper::createTiM3XX);
+
 ArGlobalRetFunctor2<ArLaser *, int, const char *>
 ArLaserCreatorHelper::ourSZSeriesCB(&ArLaserCreatorHelper::createSZSeries);
+
+ArLaser *createAnyLMS1xx(int laserNumber, const char *logPrefix, const char *name, ArLMS1XX::LaserModel model)
+{
+	return new ArLMS1XX(laserNumber, name, model);
+}
+
+ArGlobalRetFunctor4<ArLaser*, int, const char*, const char *, ArLMS1XX::LaserModel>
+TiM551CB(&createAnyLMS1xx, -1, "", "tim551", ArLMS1XX::TiM551);
+
+ArGlobalRetFunctor4<ArLaser*, int, const char*, const char *, ArLMS1XX::LaserModel>
+TiM561CB(&createAnyLMS1xx, -1, "", "tim561", ArLMS1XX::TiM561); 
+
+ArGlobalRetFunctor4<ArLaser*, int, const char*, const char *, ArLMS1XX::LaserModel>
+TiM571CB(&createAnyLMS1xx, -1, "", "tim571", ArLMS1XX::TiM571);
+
+ArRetFunctor2<ArLaser *, int, const char *> *
+ArLaserCreatorHelper::getCreateTiM551CB(void) {
+  return &TiM551CB;
+}
+
+ArRetFunctor2<ArLaser *, int, const char *> *
+ArLaserCreatorHelper::getCreateTiM561CB(void) {
+  return &TiM561CB;
+}
+
+ArRetFunctor2<ArLaser *, int, const char *> *
+ArLaserCreatorHelper::getCreateTiM571CB(void) {
+  return &TiM571CB;
+}
+
 
 ArGlobalRetFunctor2<ArBatteryMTX *, int, const char *>
 ArBatteryMTXCreatorHelper::ourBatteryMTXCB(&ArBatteryMTXCreatorHelper::createBatteryMTX);
@@ -2132,11 +2320,9 @@ ArRetFunctor2<ArLaser *, int, const char *> *ArLaserCreatorHelper::getCreateUrgC
   return &ourUrgCB;
 }
 
-ArLaser *ArLaserCreatorHelper::createLMS1XX(int laserNumber, 
-		const char *logPrefix)
+ArLaser *ArLaserCreatorHelper::createLMS1XX(int laserNumber, const char *logPrefix)
 {
-	// PS 8/22/11 - added "lms1xx" and flag specifying laser is NOT an lms5xx
-	return new ArLMS1XX(laserNumber,"lms1xx", ArLMS1XX::LMS1XX);
+	return new ArLMS1XX(laserNumber, "lms1xx", ArLMS1XX::LMS1XX);
 }
 
 ArRetFunctor2<ArLaser *, int, const char *> *ArLaserCreatorHelper::getCreateLMS1XXCB(void)
@@ -2194,7 +2380,6 @@ ArRetFunctor2<ArLaser *, int, const char *> *ArLaserCreatorHelper::getCreateTiM3
   return &ourTiM3XXCB;
 }
 
-
 ArLaser *ArLaserCreatorHelper::createSZSeries(int laserNumber,
 					    const char *logPrefix)
 {
@@ -2250,7 +2435,7 @@ ArDeviceConnectionCreatorHelper::ourTcpCB(
 ArGlobalRetFunctor3<ArDeviceConnection *, const char *, const char *, const char *>
 ArDeviceConnectionCreatorHelper::ourSerial422CB(
 	&ArDeviceConnectionCreatorHelper::createSerial422Connection);
-ArLog::LogLevel ArDeviceConnectionCreatorHelper::ourSuccessLogLevel;
+ArLog::LogLevel ArDeviceConnectionCreatorHelper::ourSuccessLogLevel = ArLog::Verbose;
 
 ArDeviceConnection *ArDeviceConnectionCreatorHelper::createSerialConnection(
 	const char *port, const char *defaultInfo, const char *logPrefix)
@@ -2359,7 +2544,7 @@ ArDeviceConnection *ArDeviceConnectionCreatorHelper::createTcpConnection(
 	const char *port, const char *defaultInfo, const char *logPrefix)
 {
   ArTcpConnection *tcpConn = new ArTcpConnection;
-  int ret;
+  //int ret;
 
   tcpConn->setPort(port, atoi(defaultInfo));
   ArLog::log(ourSuccessLogLevel, 
@@ -2666,4 +2851,46 @@ AREXPORT std::list<ArPose> ArPoseUtil::breakUpDistanceEvenly(
 
   ret.push_back(end);
   return ret;
+}
+
+AREXPORT ArTimeChecker::ArTimeChecker(const char *name, int defaultMSecs)
+{
+  if (name != NULL)
+    myName = name;
+  else
+    myName = "Unknown";
+  myMSecs = defaultMSecs;
+}
+
+AREXPORT ArTimeChecker::~ArTimeChecker()
+{
+
+}
+
+AREXPORT void ArTimeChecker::start(void)
+{
+  myStarted.setToNow();
+  myLastCheck.setToNow();
+}
+
+AREXPORT void ArTimeChecker::check(const char *subName)
+{
+  long long took = myLastCheck.mSecSinceLL();
+
+  if (took > (long long) myMSecs && subName != NULL)
+    ArLog::log(ArLog::Normal, "%s::%s took too long (%lld msecs) in thread %s",
+	       myName.c_str(), subName, took, 
+	       ArThread::self()->getThreadName());
+
+  myLastCheck.setToNow();
+}
+
+
+AREXPORT void ArTimeChecker::finish(void)
+{
+  long long took = myStarted.mSecSinceLL();
+
+  if (took > (long long) myMSecs)
+    ArLog::log(ArLog::Normal, "%s took too long (%lld msecs) in thread %s",
+	       myName.c_str(), took, ArThread::self()->getThreadName());
 }

@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -139,6 +140,7 @@ AREXPORT ArMTXIO::ArMTXIO(const char * dev) :
 		if (ioctl(myFD, MTX_READ_REG, &mtxIO) != 0)
 		{
       ArLog::log(ArLog::Normal, "ArMTXIO::ArMTXIO: failed to get the Version Registers");
+      close(myFD);
 			myEnabled = false;
 		}
 		else
@@ -175,6 +177,7 @@ AREXPORT ArMTXIO::~ArMTXIO(void)
 {
   if (myEnabled)
     closeIO();
+  Aria::remExitCallback(&myDisconnectCB);
 }
 
 /** Close the device when Aria exits
@@ -191,6 +194,7 @@ AREXPORT bool ArMTXIO::closeIO(void)
   else
   {
     ArLog::log(ArLog::Normal, "ArMTXIO::~ArMTXIO: closed device");
+    myFD = -1;
     return true;
   }
 }

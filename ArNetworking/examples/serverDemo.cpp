@@ -1,5 +1,7 @@
 #include "Aria.h"
 #include "ArNetworking.h"
+#include "ArSonarMTX.h"
+#include "ArServerModeJogPosition.h"
 
 /** @example serverDemo.cpp Example ArNetworking server providing teleoperation,
  * sonar data, control the camera, etc.
@@ -116,6 +118,8 @@ int main(int argc, char **argv)
   ArServerModeStop modeStop(&server, &robot);
   ArServerModeRatioDrive modeRatioDrive(&server, &robot);  
   ArServerModeWander modeWander(&server, &robot);
+  ArServerModeJogPosition modeJog(&server, &robot);
+  modeJog.addToConfig(Aria::getConfig());
   modeStop.addAsDefaultMode();
   modeStop.activate();
 
@@ -191,8 +195,8 @@ int main(int argc, char **argv)
   // connect the laser(s) if it was requested
   if (!laserConnector.connectLasers())
   {
-    printf("Could not connect to lasers... exiting\n");
-    Aria::exit(2);
+    ArLog::log(ArLog::Terse, "serverDemo: Warning: Could not connect to lasers.  Will continue but without laser sensing!");
+    //Aria::exit(2);
   }
   
 
@@ -203,13 +207,13 @@ int main(int argc, char **argv)
   // now let it spin off in its own thread
   server.runAsync();
 
-  printf("Server is now running...\n");
 
-  // Add a key handler so that you can exit by pressing
+  // Uncomment code below to add a key handler so that you can exit by pressing
   // escape. Note that a key handler prevents you from running
   // a program in the background on Linux, since it expects an 
   // active terminal to read keys from; remove this if you want
   // to run it in the background.
+/*
   ArKeyHandler *keyHandler;
   if ((keyHandler = Aria::getKeyHandler()) == NULL)
   {
@@ -220,6 +224,7 @@ int main(int argc, char **argv)
     robot.unlock();
     printf("To exit, press escape.\n");
   }
+*/
 
   // Read in parameter files.
   std::string configFile = "serverDemoConfig.txt";
@@ -249,6 +254,8 @@ int main(int argc, char **argv)
   robot.lock();
   robot.enableMotors();
   robot.unlock();
+
+  ArLog::log(ArLog::Normal, "serverDemo: Server is now running. Connect to %s with MobileEyes, clientDemo or another client.", server.getOpenOnIP()?server.getOpenOnIP():"this host");
 
   robot.waitForRunExit();
   Aria::exit(0);

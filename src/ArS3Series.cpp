@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -30,6 +31,7 @@ Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 #include "ArSerialConnection.h"
 #include "ariaInternal.h"
 #include <time.h>
+
 
 AREXPORT ArS3SeriesPacket::ArS3SeriesPacket() :
 ArBasePacket(10000, 1, NULL, 1) {
@@ -526,9 +528,12 @@ ArS3SeriesPacket *ArS3SeriesPacketReceiver::receivePacket(unsigned int msWait,
 		myPacket.setMonitoringDataAvailable(false);
 		if ((myReadBuf[1] == 0xaa) && (myReadBuf[2] == 0xaa)) {
 
-			//ArLog::log(ArLog::Normal, "%s::receivePacket() measured data = %02x %02x",
-			//		myName, myReadBuf[3], myReadBuf[4]);
-
+/*
+			ArLog::log(ArLog::Normal, "%s monitoring case of = %d seq = %d %d time = %d %d %d %d",
+					myName, myReadBuf[3], myPacket.getTelegramNumByte1(), myPacket.getTelegramNumByte2(),
+					myPacket.getTimeStampByte1(), myPacket.getTimeStampByte2(), myPacket.getTimeStampByte3(),
+					myPacket.getTimeStampByte4());
+*/
 			myPacket.setDataLength((datalen * 2) - 21);
 			myPacket.setNumReadings(((myPacket.getDataLength() - 5) / 2) - 1);
 
@@ -564,9 +569,12 @@ ArS3SeriesPacket *ArS3SeriesPacketReceiver::receivePacket(unsigned int msWait,
 AREXPORT ArS3Series::ArS3Series(int laserNumber, const char *name) :
 			ArLaser(laserNumber, name, 20000),
 			mySensorInterpTask(this, &ArS3Series::sensorInterp),
-			myAriaExitCB(this, &ArS3Series::disconnect) {
+			myAriaExitCB(this, &ArS3Series::disconnect),
+			myPacketHandlerCB(this, &ArS3Series::packetHandler) {
 
 	//ArLog::log(ArLog::Normal, "%s: Sucessfully created", getName());
+
+  mySendFakeMonitoringData = false;
 
 	clear();
 	myRawReadings = new std::list<ArSensorReading *>;
@@ -697,6 +705,8 @@ AREXPORT void ArS3Series::laserSetName(const char *name) {
 
 	myConnMutex.setLogNameVar("%s::myConnMutex", getName());
 	myPacketsMutex.setLogNameVar("%s::myPacketsMutex", getName());
+	mySafetyDebuggingTimeMutex.setLogNameVar("%s::mySafetyDebuggingTimeMutex", 
+					     getName());
 	myDataMutex.setLogNameVar("%s::myDataMutex", getName());
 	myAriaExitCB.setNameVar("%s::exitCallback", getName());
 
@@ -709,6 +719,8 @@ AREXPORT void ArS3Series::setRobot(ArRobot *robot) {
 	if (myRobot != NULL) {
 		myRobot->remSensorInterpTask(&mySensorInterpTask);
 		myRobot->addSensorInterpTask("S3Series", 90, &mySensorInterpTask);
+		myRobot->remPacketHandler(&myPacketHandlerCB);
+		myRobot->addPacketHandler(&myPacketHandlerCB);
 	}
 	ArLaser::setRobot(robot);
 }
@@ -739,6 +751,19 @@ void ArS3Series::failedToConnect(void) {
 
 void ArS3Series::sensorInterp(void) {
 	ArS3SeriesPacket *packet;
+
+	bool safetyDebugging = false;
+
+	mySafetyDebuggingTimeMutex.lock();
+	if (mySafetyDebuggingTime.mSecSince() < 1000)
+	  safetyDebugging = true;
+	mySafetyDebuggingTimeMutex.unlock();
+
+	if (safetyDebugging)
+	  ArLog::log(ArLog::Normal, 
+		     "%s::SafetyDecommissionWarning: Robot speed %.0f mm/sec (in cycle)",
+		     myName.c_str(), 
+		     myRobot->getVel());
 
 	/// MPL 2013_07_24 testing (added)
 	lockDevice();
@@ -986,7 +1011,7 @@ void ArS3Series::sensorInterp(void) {
 			// I'm not sure if theses are swapped ie lsb first, but i think they are
 			// as the distances are that way
 
-			unsigned char activeMonitoringCase = packet->getMonitoringDataByte2() & 0x0f;
+		  unsigned char activeMonitoringCase = packet->getMonitoringDataByte2() & 0x0f;
 			//unsigned char activeMonitoringCase = packet->getMonitoringDataByte1() & 0x0f;
 
 			//myRobot->processActiveMonitoringCase(activeMonitoringCase);
@@ -1278,6 +1303,15 @@ AREXPORT void * ArS3Series::runThread(void *arg) {
 	//char buf[1024];
 	ArS3SeriesPacket *packet;
 
+	bool safetyDebugging = false;
+	
+	ArTimeChecker checker;
+	std::string checkerName = myName + "::safetyZone";
+	checker.setName(checkerName.c_str());
+	checker.setDefaultMSecs(200);
+
+	checker.start();
+
 while (getRunning() )
 {
 	lockDevice();
@@ -1292,6 +1326,7 @@ while (getRunning() )
 		lockDevice();
 		myTryingToConnect = false;
 		unlockDevice();
+		checker.start();
 		continue;
 	}
 	
@@ -1316,12 +1351,40 @@ while (getRunning() )
 	        // the firmware
 
 	        if (packet->getMonitoringDataAvailable()) {
-	    
-		  myIsMonitoringDataAvailable = true;
-		  myMonitoringData = packet->getMonitoringDataByte1();
-		  myRobot->lock();
-		  myRobot->comInt(217, packet->getMonitoringDataByte1());  
 
+		  mySafetyDebuggingTimeMutex.lock();
+		  if (mySafetyDebuggingTime.mSecSince() < 1000)
+		    safetyDebugging = true;
+		  else
+		    safetyDebugging = false;
+		  mySafetyDebuggingTimeMutex.unlock();
+
+
+		  
+		  myIsMonitoringDataAvailable = true;
+		  if (!mySendFakeMonitoringData)
+		    myMonitoringData = packet->getMonitoringDataByte1();
+		  else
+		    myMonitoringData = 0;
+		  // MPL taking out the locking since the
+		  // ArRobotPacketSender has it's own mutex to make
+		  // sure we don't munge the packets
+
+		  //myRobot->lock();
+		  if (!mySendFakeMonitoringData)
+		    myRobot->comInt(217, packet->getMonitoringDataByte1());  
+		  else
+		    myRobot->comInt(217, 0);
+
+		  if (safetyDebugging)
+		    ArLog::log(ArLog::Normal, 
+			       "%s::SafetyDecommissionWarning: Laser reports zone %d, last sent %lld mSecAgo",
+			       myName.c_str(), 
+			       packet->getMonitoringDataByte1(),
+			       checker.getLastCheckTime().mSecSinceLL());
+		  
+		  checker.finish();
+		  checker.start();
 		  /*
 			ArLog::log(ArLog::Normal, "%s monitoring case of = %d seq = %d %d time = %d %d %d %d",
 					getName(), packet->getMonitoringDataByte1(), packet->getTelegramNumByte1(), packet->getTelegramNumByte2(),
@@ -1330,7 +1393,7 @@ while (getRunning() )
 		  ArLog::log(ArLog::Normal, "%s: Sent monitoring case of %d", 
 			     getName(), packet->getMonitoringDataByte1());
 		  */
-		  myRobot->unlock();
+		  //myRobot->unlock();
 		}
 		else {
 		  myIsMonitoringDataAvailable = false;
@@ -1340,6 +1403,7 @@ while (getRunning() )
 		myPackets.push_back (packet);
 		myPacketsMutex.unlock();
 		
+
 		if (myRobot == NULL)
 			sensorInterp();
 	}
@@ -1388,6 +1452,7 @@ while (getRunning() )
 		// if we have a robot but it isn't running yet then don't have a
 		// connection failure
 		if (laserCheckLostConnection() ) {
+
 			ArLog::log (ArLog::Terse,
 			            "%s:  Lost connection to the laser because of error.  Nothing received for %g seconds (greater than the timeout of %g).",
 			            getName(), myLastReading.mSecSince() / 1000.0,
@@ -1407,6 +1472,20 @@ while (getRunning() )
 	
 }
 	return NULL;
+}
+
+AREXPORT bool ArS3Series::packetHandler(ArRobotPacket *packet)
+{
+  if (packet->getID() != 0xd9)
+    return false;
+
+  mySafetyDebuggingTimeMutex.lock();
+  mySafetyDebuggingTime.setToNow();
+  mySafetyDebuggingTimeMutex.unlock();
+
+  // we return false anyways, so that we get more zones if we have
+  // more than one laser
+  return false;
 }
 
 static const unsigned short

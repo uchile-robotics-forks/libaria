@@ -1,4 +1,7 @@
-/* SWIG Wrapper for ArNetworking */
+
+%{
+/* SWIG wrapper.i for ArNetworking */
+%}
 
 #ifdef SWIGPYTHON
 %module(docstring="Python wrapper library for ArNetworking", directors="1") ArNetworkingPy
@@ -22,6 +25,9 @@
 #include <cstddef>
 #include "Aria.h"
 #include "ArNetworking.h"
+#include "ArClientHandlerRobotUpdate.h"
+#include "ArClientRatioDrive.h"
+#include "ArServerModeJogPosition.h"
 #include "../include/wrapper_ExtraClasses.h"
 %}
 %warnfilter(451) ArUtil;
@@ -99,8 +105,15 @@
 
 /* In Python, use typemaps to convert functions to functors: */
 #ifdef SWIGPYTHON
+
 %{
-  #include "../include/wrapper_Functors.h"
+#include "../include/wrapper_Functors.h"
+%}
+
+
+
+/*
+%{
 
   class ArPyFunctor_ServerData : 
     public ArFunctor2<ArServerClient*, ArNetPacket*>
@@ -149,54 +162,37 @@
   };
 
 
-  class ArPyFunctor_NetPacket: 
-    public ArFunctor1<ArNetPacket*>,
-    ArPyFunctor
-  {
-  public:
-    ArPyFunctor_NetPacket(PyObject* f) : ArFunctor1<ArNetPacket*>(), ArPyFunctor(f)
-    {
-    }
-
-    virtual void invoke()
-    {
-      Py_FatalError("ArPyFonctor_NetPacket (for <ArNetPacket*>) invoked with no arguments!");
-    }
-
-    virtual void invoke(ArNetPacket* pkt)
-    {
-      PyObject *args = PyTuple_New(1);
-      PyObject *pktObj = SWIG_Python_NewPointerObj(pkt, SWIGTYPE_p_ArNetPacket, 0);
-      PyTuple_SetItem(args, 0, pktObj);
-      PyObject *r = PyObject_CallObject(pyFunction, args);
-      if(!r)
-      {
-        fputs("** ArPyFunctor_NetPacket: Error calling python function: ", stderr);
-        PyErr_Print();
-      }
-      Py_DECREF(args);
-    }
-
-    virtual const char* getName() {
-      return ArPyFunctor::getName();
-    }
-  };
 %}
+*/
 
+%typemap(in) ArFunctor1<ArNetPacket *>* {
+  $1 = new ArPyFunctor1<ArNetPacket *>($input);
+}
+%typecheck(SWIG_TYPECHECK_POINTER) ArFunctor1<ArNetPacket *>* {
+  $1 = PyCallable_Check($input);
+}
 
+/*
 %typemap(in) ArFunctor2<ArServerClient*, ArNetPacket*>* {
   $1 = new ArPyFunctor_ServerData($input); // XXX memory leak
 }
+%typecheck(SWIG_TYPECHECK_POINTER) ArFunctor2<ArServerClient*, ArNetPacket*>* {
+  $1 = PyCallable_Check($input);
+}
+*/
 
+%typemap(in) ArFunctor2<ArServerClient*, ArNetPacket*>* {
+  $1 = new ArPyFunctor2<ArServerClient*, ArNetPacket*>($input);
+}
 %typecheck(SWIG_TYPECHECK_POINTER) ArFunctor2<ArServerClient*, ArNetPacket*>* {
   $1 = PyCallable_Check($input);
 }
 
-%typemap(in) ArFunctor1<ArNetPacket*>* {
-  $1 = new ArPyFunctor_NetPacket($input); // XXX memory leak
-}
 
-%typecheck(SWIG_TYPECHECK_POINTER) ArFunctor1<ArNetPacket*>* {
+%typemap(in) ArFunctor1<const char*>* {
+  $1 = new ArPyFunctor1_String($input);
+}
+%typecheck(SWIG_TYPECHECK_POINTER) ArFunctor1<const char*>* {
   $1 = PyCallable_Check($input);
 }
 
@@ -262,7 +258,11 @@
 %include "ArServerSimpleCommands.h"
 %include "ArServerSimpleOpener.h"
 %include "ArServerUserInfo.h"
+%include "ArClientHandlerRobotUpdate.h"
 
 #include "../include/wrapper_ExtraClasses.h"
 
-/* The End. */
+%{
+/* End SWIG wraper.i for ArNetworking */
+%}
+

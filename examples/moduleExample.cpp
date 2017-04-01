@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -65,20 +66,30 @@ void printStatus(ArModuleLoader::Status status)
 
 int main(int argc, char **argv)
 {
-
   Aria::init();
-
   ArArgumentParser parser(&argc, argv);
-  // set up our simple connector
-  ArSimpleConnector simpleConnector(&parser);  
+  parser.loadDefaultArguments();
   ArRobot robot;
 
-  // set up the robot for connecting
-  if (!simpleConnector.connectRobot(&robot))
+  ArRobotConnector robotConnector(&parser, &robot);
+  if(!robotConnector.connectRobot())
   {
-    printf("Could not connect to robot... exiting\n");
+    ArLog::log(ArLog::Terse, "moduleExample: Could not connect to the robot.");
+    if(parser.checkHelpAndWarnUnparsed())
+    {
+        // -help not given
+        Aria::logOptions();
+        Aria::exit(1);
+    }
+  }
+
+  if (!Aria::parseArgs() || !parser.checkHelpAndWarnUnparsed())
+  {
+    Aria::logOptions();
     Aria::exit(1);
   }
+
+  ArLog::log(ArLog::Normal, "moduleExample: Connected to robot.");
 
   robot.runAsync(true);
 

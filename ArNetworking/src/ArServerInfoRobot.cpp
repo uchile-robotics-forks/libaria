@@ -99,9 +99,14 @@ AREXPORT void ArServerInfoRobot::update(ArServerClient *client,
     sending.byte2ToBuf(ArMath::roundInt(
 	    myRobot->getBatteryVoltage() * 10));
 
+  int th;
+  th = ArMath::roundInt(ArMath::fixAngle(myRobot->getTh()));
+  if (th == -180)
+    th = 180;
+
   sending.byte4ToBuf((int)myRobot->getX());
   sending.byte4ToBuf((int)myRobot->getY());
-  sending.byte2ToBuf((int)myRobot->getTh());
+  sending.byte2ToBuf(th);
   sending.byte2ToBuf((int)myRobot->getVel());
   sending.byte2ToBuf((int)myRobot->getRotVel());
   sending.byte2ToBuf((int)myRobot->getLatVel());
@@ -119,6 +124,11 @@ AREXPORT void ArServerInfoRobot::updateNumbers(ArServerClient *client,
 
   myRobot->lock();
 
+  int th;
+  th = ArMath::roundInt(ArMath::fixAngle(myRobot->getTh()));
+  if (th == -180)
+    th = 180;
+
   if (myRobot->haveStateOfCharge())
     sending.byte2ToBuf(ArMath::roundInt(myRobot->getStateOfCharge() * 10));
   else if (myRobot->getRealBatteryVoltage() > 0)
@@ -129,7 +139,7 @@ AREXPORT void ArServerInfoRobot::updateNumbers(ArServerClient *client,
 	    myRobot->getBatteryVoltage() * 10));
   sending.byte4ToBuf((int)myRobot->getX());
   sending.byte4ToBuf((int)myRobot->getY());
-  sending.byte2ToBuf((int)myRobot->getTh());
+  sending.byte2ToBuf(th);
   sending.byte2ToBuf((int)myRobot->getVel());
   sending.byte2ToBuf((int)myRobot->getRotVel());
   sending.byte2ToBuf((int)myRobot->getLatVel());

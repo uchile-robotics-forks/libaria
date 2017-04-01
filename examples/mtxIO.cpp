@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -25,6 +26,7 @@ Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 */
 #include "Aria.h"
 #include "ArMTXIO.h"
+#include <stdint.h>
 
 /** @example mtxIO.cpp  Sets patterns on digital outputs and acts on digital
  * inputs.   Attach LEDs to the outputs and buttons to the digital inputs to
@@ -35,17 +37,17 @@ Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
  * have read/write access to /dev/mtx.
  */
 
-void printBits(unsigned short c) {
+void printBits(unsigned char c) {
   int i;
-  for (i=0; i < 16; i++) {
-    if (i == 8) {
-      ArLog::log(ArLog::Normal, " ");
+  for (i=0; i < 8; i++) {
+    if (i == 4) {
+      printf(" ");
     }
     if (0x8000 & (c << i)) {
-      ArLog::log(ArLog::Normal, "1");
+      printf("1");
     }
     else {
-      ArLog::log(ArLog::Normal, "0");
+      printf("0");
     }
   }
   ArLog::log(ArLog::Normal, " (0x%04x) ", c);
@@ -95,9 +97,11 @@ int main(int argc, char **argv)
 
     // print state of inputs
     unsigned char inp;
-    mtxIO.getDigitalInputMon1(&inp);
+    mtxIO.getDigitalIOInputMon1(&inp);
+    printf("Current Input State Bank 1: ");
     printBits(inp);
-    mtxIO.getDigitalInputMon2(&inp);
+    mtxIO.getDigitalIOInputMon2(&inp);
+    printf("Current Input State Bank 2: ");
     printBits(inp);
 
     
@@ -116,6 +120,8 @@ int main(int argc, char **argv)
 
     // set new state on both output banks
 
+    printf("Setting Output Bank 1 to: ");
+    printBits(out);
     if(!mtxIO.setDigitalOutputControl1(&out))
     {
       ArLog::log(ArLog::Terse, "mtxIO: Error setting state of output control 1");
@@ -123,6 +129,8 @@ int main(int argc, char **argv)
       Aria::exit(3);
     }
 
+    printf("Setting Output Bank 2 to: ");
+    printBits(out);
     if(!mtxIO.setDigitalOutputControl2(&out))
     {
       ArLog::log(ArLog::Terse, "mtxIO: Error setting state of output control 2");
@@ -141,17 +149,6 @@ int main(int argc, char **argv)
 
   }
     
-    
-  Aria::exit(0);
-  
-    // wait
-    mtxIO.unlock();
-    ArUtil::sleep(500);
- 
-    // shift 
-    out = out << 1;
-    if(out == 0) out = 1;
-  }
     
     
   Aria::exit(0);

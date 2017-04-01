@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -438,7 +439,7 @@ class ArMapObjects : public ArMapObjectsInterface
 public :
 
   /// Default keyword that prefixes each map object line in the map file
-  static const char *DEFAULT_KEYWORD;
+  AREXPORT static const char *DEFAULT_KEYWORD;
 
   /// Constructor
   /**
@@ -1146,7 +1147,7 @@ public:
 
 
   // ---------------------------------------------------------------------
-
+#ifndef SWIG
   /// Searches the given CairnInfo list for an entry that matches the given mapObject.
   /**
    * The CairnInfo list stores the parameter information (if any) for map 
@@ -1161,7 +1162,7 @@ public:
   AREXPORT static std::list<ArArgumentBuilder *>::iterator findMapObjectParamInfo
              (const char *mapObjectName,
               std::list<ArArgumentBuilder*> &cairnInfoList);
-
+#endif
 protected:
 
   AREXPORT bool setInactiveInfo(const char *infoName,

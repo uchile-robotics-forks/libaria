@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -636,6 +637,39 @@ AREXPORT void ArLog::logBacktrace(LogLevel level)
 #endif
 }
 
+/// Log a file if it exists
+AREXPORT bool ArLog::logFileContents(LogLevel level, const char *fileName)
+{
+  FILE *strFile;
+  unsigned int i;
+  char str[100000];
+  
+  str[0] = '\0';
+  
+  if ((strFile = ArUtil::fopen(fileName, "r")) != NULL)
+  {
+    while (fgets(str, sizeof(str), strFile) != NULL)
+    {
+      bool endedLine = false;
+      for (i = 0; i < sizeof(str) && !endedLine; i++)
+      {
+	if (str[i] == '\r' || str[i] == '\n' || str[i] == '\0')
+	{
+	  str[i] = '\0';
+	  ArLog::log(level, str);
+	  endedLine = true;
+	}
+      }
+    }
+    fclose(strFile);
+    return true;
+  }
+  else
+  {
+    return false;
+  }
+}
+
 AREXPORT void ArLog::addToConfig(ArConfig *config)
 {
   std::string section = "LogConfig";
@@ -834,6 +868,11 @@ AREXPORT void ArLog::setFunctor(ArFunctor1<const char *> *functor)
   ourFunctor = functor;
 }
 
+AREXPORT void ArLog::clearFunctor()
+{
+  ourFunctor = NULL;
+}
+
 AREXPORT void ArLog::invokeFunctor(const char *message)
 {
   ArFunctor1<const char *> *functor;
@@ -861,3 +900,59 @@ AREXPORT void ArLog::internalForceLockup(void)
   ourMutex.lock();
 }
 
+AREXPORT void ArLog::log_v(LogLevel level, const char *prefix, const char *str, va_list ptr)
+{
+  char buf[1024];
+  strncpy(buf, prefix, sizeof(buf));
+  const size_t prefixSize = strlen(prefix);
+  vsnprintf(buf+prefixSize, sizeof(buf)-prefixSize, str, ptr);
+  buf[sizeof(buf) - 1] = '\0';
+  logNoLock(level, buf);
+}
+
+
+AREXPORT void ArLog::info(const char *str, ...)
+{
+  ourMutex.lock();
+  va_list ptr;
+  va_start(ptr, str);
+  log_v(Normal, "", str, ptr);
+  va_end(ptr);
+  ourMutex.unlock();
+}
+
+AREXPORT void ArLog::warning(const char *str, ...)
+{
+  ourMutex.lock();
+  va_list ptr;
+  va_start(ptr, str);
+  log_v(Terse, "Warning: ", str, ptr);
+  va_end(ptr);
+  ourMutex.unlock();
+}
+
+AREXPORT void ArLog::error(const char *str, ...)
+{
+  ourMutex.lock();
+  va_list ptr;
+  va_start(ptr, str);
+  log_v(Terse, "Error: ", str, ptr);
+  va_end(ptr);
+  ourMutex.unlock();
+}
+
+AREXPORT void ArLog::debug(const char *str, ...)
+{
+  ourMutex.lock();
+  va_list ptr;
+  va_start(ptr, str);
+  log_v(Terse, "[debug] ", str, ptr);
+  va_end(ptr);
+  ourMutex.unlock();
+}
+
+AREXPORT void ArLog::setLogLevel(LogLevel level) {
+	ourMutex.lock();
+	ourLevel = level;
+	ourMutex.unlock();
+}

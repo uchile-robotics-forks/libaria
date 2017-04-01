@@ -18,9 +18,22 @@ ArCentralManager::ArCentralManager(ArServerBase *robotServer,
   myDataMutex.setLogName("ArCentralManager::myDataMutex");
   setThreadName("ArCentralManager");
 
+  myTimeChecker.setName("ArCentralManager");
+  myTimeChecker.setDefaultMSecs(100);
+
   myRobotServer = robotServer;
   myClientServer = clientServer;
-  
+
+  myLoopMSecs = 10;
+  /*
+  Aria::getConfig()->addParam(
+	  ArConfigArg("ArCentralManager_MSecToSleepInLoop",
+		      &myLoopMSecs,
+		      "The number of MS to sleep in the loop (default 1)", 1),
+	  "Misc Testing", 
+	  ArPriority::EXPERT);
+  */
+
   myAriaExitCB.setName("ArCentralManager");
   Aria::addExitCallback(&myAriaExitCB, 25);
 
@@ -93,6 +106,59 @@ ArCentralManager::ArCentralManager(ArServerBase *robotServer,
   myClientServer->addClientRemovedCallback(&myMainServerClientRemovedCB);
 
   runAsync();
+}
+
+ArCentralManager::ArCentralManager() : 
+  myNetSwitchCB(this, &ArCentralManager::netServerSwitch),
+  myNetClientListCB(this, &ArCentralManager::netClientList),
+  myAriaExitCB(this, &ArCentralManager::close),
+  myProcessFileCB(this, &ArCentralManager::processFile),
+  myForwarderServerClientRemovedCB(
+	  this, &ArCentralManager::forwarderServerClientRemovedCallback),
+  myMainServerClientRemovedCB(
+	  this, &ArCentralManager::mainServerClientRemovedCallback)
+{
+  myMutex.setLogName("ArCentralManager::myCallbackMutex");
+  myDataMutex.setLogName("ArCentralManager::myDataMutex");
+  setThreadName("ArCentralManager");
+
+  myTimeChecker.setName("ArCentralManager");
+  myTimeChecker.setDefaultMSecs(100);
+
+  myRobotServer = NULL;
+  myClientServer = NULL;
+
+  myLoopMSecs = 1;
+  /*
+  Aria::getConfig()->addParam(
+	  ArConfigArg("ArCentralManager_MSecToSleepInLoop",
+		      &myLoopMSecs,
+		      "The number of MS to sleep in the loop (default 1)", 1),
+	  "Misc Testing", 
+	  ArPriority::EXPERT);
+  */
+
+  myAriaExitCB.setName("ArCentralManager");
+  Aria::addExitCallback(&myAriaExitCB, 25);
+
+  myEnforceType = ArServerCommands::TYPE_UNSPECIFIED;
+
+  
+  /*  I don't think we need this one
+  myRobotServer->addData("centralServerHeartbeat", "Just a data to let the robot's know that this server has the centralServerHeartbeat feature (nothing is actually done with this command)",
+			 NULL, "none", "none", "RobotInfo", 
+			 "RETURN_NONE");
+  */
+
+  myClosingConnectionID = 0;
+
+  myMostForwarders = 0;
+  myMostClients = 0;
+
+  myForwarderServerClientRemovedCB.setName("ArCentralManager");
+
+
+  myMainServerClientRemovedCB.setName("ArCentralManager");
 }
 
 ArCentralManager::~ArCentralManager()
@@ -304,10 +370,16 @@ void *ArCentralManager::runThread(void *arg)
   threadStarted();
   while (getRunning())
   {
+    myTimeChecker.start();
+
     int numForwarders = 0;
     int numClients = 0;
     
     myDataMutex.lock();
+
+    myCycleCBList.invoke();
+
+    myTimeChecker.check("lock");
     // this is where the original code to add forwarders was before we
     // changed the unique behavior to drop old ones...
 
@@ -343,12 +415,15 @@ void *ArCentralManager::runThread(void *arg)
       }
       if (!connected && !removed && forwarder->isConnected())
       {
-	ArLog::log(ArLog::Normal, "Adding forwarder %s", 
-		   forwarder->getRobotName());
 	ArTime *newTime = new ArTime;
 	newTime->setSec(0);
 	myUsedPorts[forwarder->getPort()] = newTime;
-	
+
+	forwarderAdded(forwarder);
+	/*
+	ArLog::log(ArLog::Normal, "Adding forwarder %s", 
+		   forwarder->getRobotName());
+
 	std::multimap<int, ArFunctor1<ArCentralForwarder *> *>::iterator it;
 	for (it = myForwarderAddedCBList.begin();
 	     it != myForwarderAddedCBList.end();
@@ -365,6 +440,7 @@ void *ArCentralManager::runThread(void *arg)
 	}
 	ArLog::log(ArLog::Normal, "Added forwarder %s", 
 		   forwarder->getRobotName());      
+	*/
 	ArNetPacket *sendPacket = new ArNetPacket;
 	sendPacket->strToBuf("");
 	sendPacket->uByte2ToBuf(forwarder->getPort());
@@ -377,11 +453,14 @@ void *ArCentralManager::runThread(void *arg)
 	//myClientServer->broadcastPacketTcp(&sendPacket, "clientAdded");
       }
     }
+    myTimeChecker.check("processingForwarders");
 
     while ((fIt = connectedRemoveList.begin()) != connectedRemoveList.end())
     {
       forwarder = (*fIt);
 
+      forwarderRemoved(forwarder);
+      /*
       ArLog::log(ArLog::Normal, "Removing forwarder %s", 
 		 forwarder->getRobotName());
       std::multimap<int, ArFunctor1<ArCentralForwarder *> *>::iterator it;
@@ -401,6 +480,7 @@ void *ArCentralManager::runThread(void *arg)
 
       ArLog::log(ArLog::Normal, "Called forwarder removed for %s", 
 		 forwarder->getRobotName());
+      */
       ArNetPacket *sendPacket = new ArNetPacket;
       sendPacket->strToBuf("");
       sendPacket->uByte2ToBuf(forwarder->getPort());
@@ -423,6 +503,8 @@ void *ArCentralManager::runThread(void *arg)
 
     }
 
+    myTimeChecker.check("removingForwarders");
+
     while ((fIt = unconnectedRemoveList.begin()) != 
 	   unconnectedRemoveList.end())
     {
@@ -440,6 +522,7 @@ void *ArCentralManager::runThread(void *arg)
       ArLog::log(ArLog::Normal, "Removed unconnected forwarder");
     }
 
+    myTimeChecker.check("removingUnconnectedForwarders");
 
     // this code was up above just after the lock before we changed
     // the behavior for unique names
@@ -465,6 +548,8 @@ void *ArCentralManager::runThread(void *arg)
 					 myEnforceType);
       myForwarders.push_back(forwarder);
     }
+
+    myTimeChecker.check("creatingForwarders");
 
     numClients += myRobotServer->getNumClients();
     if (myRobotServer != myClientServer)
@@ -508,7 +593,12 @@ void *ArCentralManager::runThread(void *arg)
       delete packet;
     }
 
-    ArUtil::sleep(1); 
+    myTimeChecker.check("sendingPackets");
+
+    myTimeChecker.finish();
+
+    //ArUtil::sleep(1); 
+    ArUtil::sleep(myLoopMSecs);
 
     //make this a REALLY long sleep to test the duplicate pending
     //connection code
@@ -517,6 +607,29 @@ void *ArCentralManager::runThread(void *arg)
 
   threadFinished();
   return NULL;
+}
+
+void ArCentralManager::forwarderAdded(ArCentralForwarder *forwarder)
+{
+  ArLog::log(ArLog::Normal, "Adding forwarder %s", 
+	     forwarder->getRobotName());
+  
+  std::multimap<int, ArFunctor1<ArCentralForwarder *> *>::iterator it;
+  for (it = myForwarderAddedCBList.begin();
+       it != myForwarderAddedCBList.end();
+       it++)
+  {
+    if ((*it).second->getName() == NULL || 
+	(*it).second->getName()[0] == '\0')
+      ArLog::log(ArLog::Normal, "Calling unnamed add functor at %d",
+		 -(*it).first);
+    else
+      ArLog::log(ArLog::Normal, "Calling %s add functor at %d",
+		 (*it).second->getName(), -(*it).first);
+    (*it).second->invoke(forwarder);
+  }
+  ArLog::log(ArLog::Normal, "Added forwarder %s", 
+	     forwarder->getRobotName());      
 }
 
 
@@ -550,6 +663,30 @@ AREXPORT void ArCentralManager::remForwarderAddedCallback(
     }
   }
   myCallbackMutex.unlock();
+}
+
+void ArCentralManager::forwarderRemoved(ArCentralForwarder *forwarder)
+{
+  ArLog::log(ArLog::Normal, "Removing forwarder %s", 
+	     forwarder->getRobotName());
+
+  std::multimap<int, ArFunctor1<ArCentralForwarder *> *>::iterator it;
+  for (it = myForwarderRemovedCBList.begin();
+       it != myForwarderRemovedCBList.end();
+       it++)
+  {
+    if ((*it).second->getName() == NULL || 
+	(*it).second->getName()[0] == '\0')
+      ArLog::log(ArLog::Normal, "Calling unnamed remove functor at %d",
+		 -(*it).first);
+    else
+      ArLog::log(ArLog::Normal, "Calling %s remove functor at %d",
+		 (*it).second->getName(), -(*it).first);
+    (*it).second->invoke(forwarder);
+  }
+  
+  ArLog::log(ArLog::Normal, "Called forwarder removed for %s", 
+	     forwarder->getRobotName());
 }
 
 AREXPORT void ArCentralManager::addForwarderRemovedCallback(

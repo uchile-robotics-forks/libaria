@@ -124,12 +124,18 @@ public:
 
   /// Handles the "getConfigBySectionsV3" request.
   AREXPORT void getConfigBySectionsV3(ArServerClient *client, ArNetPacket *packet);
+  
+  /// Handles the "getConfigBySectionsV4" request.
+  AREXPORT void getConfigBySectionsV4(ArServerClient *client, ArNetPacket *packet);
 
   /// Handles the (deprecated) "getConfig" request.
   AREXPORT void getConfig(ArServerClient *client, ArNetPacket *packet);
   
   /// Handles the "setConfig" request.
   AREXPORT void setConfig(ArServerClient *client, ArNetPacket *packet);
+  
+  /// Handles the "setConfigParam" request.
+  AREXPORT void setConfigParam(ArServerClient *client, ArNetPacket *packet);
   
   AREXPORT void setConfigBySections(ArServerClient *client, ArNetPacket *packet);
   
@@ -169,11 +175,11 @@ public:
   AREXPORT void remConfigUpdatedCallback(ArFunctor *functor);  
 
   /// Restarts the IO manually (mostly for because of a config change)
-  void restartIO(const char *reason);
+  AREXPORT void restartIO(const char *reason);
   /// Restarts the software manually (mostly for because of a config change)
-  void restartSoftware(const char *reason);
+  AREXPORT void restartSoftware(const char *reason);
   /// Restarts the hardware manually (mostly for because of a config change)
-  void restartHardware(const char *reason);
+  AREXPORT void restartHardware(const char *reason);
 
   /// Adds a callback for when the IO is changed
   void addRestartIOCB(ArFunctor *functor, int position = 50) 
@@ -207,7 +213,7 @@ public:
   AREXPORT bool configUpdated(ArServerClient *client = NULL);
   
   /// Changes the variables that prevent changes
-  void setPreventChanges(bool preventChanges = false,
+  AREXPORT void setPreventChanges(bool preventChanges = false,
 			 const char *preventChangesString = NULL);
 
   /// loads the whole of a default file (for internal use)
@@ -259,7 +265,8 @@ protected:
   bool internalSetConfig(ArServerClient *client, 
                          ArNetPacket *packet,
                          int version,
-                         bool isMultiplePackets = false);
+                         bool isMultiplePackets = false,
+                         bool isSingleParam = false);
 
   /// just creates the default config... (internal, don't use)
   void createDefaultConfig(const char *defaultFileBaseDir);
@@ -307,8 +314,11 @@ protected:
   ArFunctor2C<ArServerHandlerConfig, ArServerClient*, ArNetPacket *> myGetConfigBySectionsCB;
   ArFunctor2C<ArServerHandlerConfig, ArServerClient*, ArNetPacket *> myGetConfigBySectionsV2CB;
   ArFunctor2C<ArServerHandlerConfig, ArServerClient*, ArNetPacket *> myGetConfigBySectionsV3CB;
+  ArFunctor2C<ArServerHandlerConfig, ArServerClient*, ArNetPacket *> myGetConfigBySectionsV4CB;
+
   ArFunctor2C<ArServerHandlerConfig, ArServerClient*, ArNetPacket *> myGetConfigCB;
   ArFunctor2C<ArServerHandlerConfig, ArServerClient*, ArNetPacket *> mySetConfigCB;
+  ArFunctor2C<ArServerHandlerConfig, ArServerClient*, ArNetPacket *> mySetConfigParamCB;
   ArFunctor2C<ArServerHandlerConfig, ArServerClient*, ArNetPacket *> mySetConfigBySectionsCB;
   ArFunctor2C<ArServerHandlerConfig, ArServerClient*, ArNetPacket *> mySetConfigBySectionsV2CB;
   ArFunctor2C<ArServerHandlerConfig, ArServerClient*, ArNetPacket *> myReloadConfigCB;

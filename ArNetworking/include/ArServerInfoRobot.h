@@ -9,6 +9,8 @@ class ArServerClient;
 /** Server component providing basic robot status information to clients.
  * This service accepts the following data requests: 
  * <ul>
+ *  <li><code>updateNumbers</code></li>
+ *  <li><code>updateStrings</code></li>
  *  <li><code>update</code></li>
  *  <li><code>physicalInfo</code></li>
  *  <li><code>batteryInfo</code></li>
@@ -16,21 +18,9 @@ class ArServerClient;
  * </ul>
  *
  *  For bandwidth savings you should use <code>updateNumbers</code>
- * and <code>updateStrings</code> instead of <code>update</code>.
- *
- * The <code>update</code> request returns data regarding the current
- * state of the robot. 
- * It replies with the following data packet:
- * <ol>
- *  <li>Status (Null-terminated string)</li>
- *  <li>Mode (Null-terminated string)</li>
- *  <li>Battery voltage (times 10) (2 Byte integer)</li>
- *  <li>X position (4 byte floating point number)</li>
- *  <li>Y position (4 byte floating point number)</li>
- *  <li>Theta (2-byte floating point number)</li>
- *  <li>Forward velocity (2-byte integer)</li>
- *  <li>Rotation velocity (2-byte integer)</li>
- * </ol>
+ *  at a higher frequency 
+ * and <code>updateStrings</code> at a lower frequency instead of
+ * <code>update</code> at high frequency request rate.
  *
  * The <code>updateNumbers</code> request returns data regarding the current
  * state of the robot. 
@@ -52,9 +42,25 @@ class ArServerClient;
  *  <li>Status (Null-terminated string)</li>
  *  <li>Mode (Null-terminated string)</li>
  *</ol>
+ * 
+ * The deprecated <code>update</code> request returns all data regarding the current
+ * state of the robot. 
+ * It replies with the following data packet:
+ * <ol>
+ *  <li>Status (Null-terminated string)</li>
+ *  <li>Mode (Null-terminated string)</li>
+ *  <li>Battery voltage (times 10) (2 Byte integer)</li>
+ *  <li>X position (4 byte floating point number)</li>
+ *  <li>Y position (4 byte floating point number)</li>
+ *  <li>Theta (2-byte floating point number)</li>
+ *  <li>Forward velocity (2-byte integer)</li>
+ *  <li>Rotation velocity (2-byte integer)</li>
+ * </ol>
+ *
  *
  * The <code>physicalInfo</code> request returns data regarding the physical characteristics of
- * the robot.  This information does not change during the robot execution.  It replies with the 
+ * the robot.  This information does not change during the robot execution,
+ * so only needs to be requested once or as needed. It replies with the 
  * following data packet:
  * <ol>
  *  <li>Robot type (Null-terminated string)</li>

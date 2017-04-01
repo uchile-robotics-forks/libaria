@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -87,7 +88,7 @@ AREXPORT int ArCondition::broadcast()
     return(STATUS_FAILED_INIT);
   }
 
-  ArLog::log(ArLog::Normal, "broadcasting %s", getLogName());
+  //ArLog::log(ArLog::Normal, "broadcasting %s", getLogName());
   for (; myCount != 0; --myCount)
   {
     if (PulseEvent(myCond) == 0) // PulseEvent returns 09 on error according to http://msdn.microsoft.com/en-us/library/windows/desktop/ms684914(v=vs.85).aspx

@@ -8,28 +8,39 @@
 class ArCentralManager : public ArASyncTask
 {
 public:
-  /// Constructor
+  /// Normal constructor
   AREXPORT ArCentralManager(ArServerBase *robotServer, ArServerBase *clientServer);
+  /// Empty constructor for those that'll inherit and do other behavior
+  AREXPORT ArCentralManager();
   /// Destructor
   AREXPORT virtual ~ArCentralManager();
-  /// Logs all the connection information
-  void logConnections(void);
   /// Enforces that everything is using this protocol version
-  AREXPORT void enforceProtocolVersion(const char *protocolVersion);
+  AREXPORT virtual void enforceProtocolVersion(const char *protocolVersion);
   /// Enforces that the robots that connect are this type
-  AREXPORT void enforceType(ArServerCommands::Type type);
+  AREXPORT virtual void enforceType(ArServerCommands::Type type);
   /// Adds a callback for when a new forwarder is added
-  AREXPORT void addForwarderAddedCallback(
+  AREXPORT virtual void addForwarderAddedCallback(
 	  ArFunctor1<ArCentralForwarder *> *functor, int priority = 0);
   /// Removes a callback for when a new forwarder is added
-  AREXPORT void remForwarderAddedCallback(
+  AREXPORT virtual void remForwarderAddedCallback(
 	  ArFunctor1<ArCentralForwarder *> *functor);
   /// Adds a callback for when a new forwarder is destroyed
-  AREXPORT void addForwarderRemovedCallback(
+  AREXPORT virtual void addForwarderRemovedCallback(
 	  ArFunctor1<ArCentralForwarder *> *functor, int priority = 0);
   /// Removes a callback for when a new forwarder is destroyed
-  AREXPORT void remForwarderRemovedCallback(
+  AREXPORT virtual void remForwarderRemovedCallback(
 	  ArFunctor1<ArCentralForwarder *> *functor);	  
+  /// Adds a cycle callback
+  virtual void addCycleCallback(ArFunctor *functor,
+			     int position = 50) 
+    { myCycleCBList.addCallback(functor, position); }
+  /// Removes a cycle callback
+  virtual void remCycleCallback(ArFunctor *functor)
+    { myCycleCBList.remCallback(functor); }
+
+
+  /// Logs all the connection information
+  AREXPORT void logConnections(void);
   /// Networking command to get the list of clients
   AREXPORT void netClientList(ArServerClient *client, ArNetPacket *packet);
   /// A callback so we can tell the main connection happened when a
@@ -42,10 +53,15 @@ public:
   /// Networking command to switch the direction of a connection
   AREXPORT void netServerSwitch(ArServerClient *client, ArNetPacket *packet);
   AREXPORT virtual void *runThread(void *arg);
+
+
 protected:
   void close(void);
   bool processFile(void);
 
+  void forwarderAdded(ArCentralForwarder *forwarder);
+  void forwarderRemoved(ArCentralForwarder *forwarder);
+  
   bool removePendingDuplicateConnections(const char *robotName);
 
   ArServerBase *myRobotServer;
@@ -55,11 +71,16 @@ protected:
   double myRobotBackupTimeout;
   double myClientBackupTimeout;
 
+  int myLoopMSecs;
+
   std::string myEnforceProtocolVersion;
   ArServerCommands::Type myEnforceType;
 
   int myMostForwarders;
   int myMostClients;
+
+  ArTimeChecker myTimeChecker;
+  ArCallbackList myCycleCBList;
 
   ArTypes::UByte4 myClosingConnectionID;
   std::list<ArSocket *> myClientSockets;

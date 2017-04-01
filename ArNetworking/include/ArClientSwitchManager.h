@@ -36,7 +36,7 @@ public:
   /// Gets the identifier we're using
   AREXPORT const char *getIdentifier(void);
   /// Sets the identifier we're using
-  AREXPORT void setIdentifier(const char *identifier)
+  void setIdentifier(const char *identifier)
 	{ myIdentifier = identifier; }
 
   /// Enforces the that the server is using this protocol version
@@ -74,7 +74,7 @@ public:
   /**
      @internal
   **/
-  AREXPORT ArServerClient* getServerClient(void) 
+  ArServerClient* getServerClient(void) 
     { return myServerClient; }    
 
   /// Adds central server or identifier not passed into the config
@@ -82,19 +82,19 @@ public:
 			    const char *connectName, const char *connectDesc, 
 			    const char *addressName, const char *addressDesc);
 
-  /// Adds a callback when we switch states while starting
+  /// Adds a callback when we fail to connect
   AREXPORT void addFailedConnectCB(
 	  ArFunctor1<const char *> *functor, int position = 50) 
     { myFailedConnectCBList.addCallback(functor, position); }
-  /// Removes a callback when we switch to running
+  /// Removes a callback when we fail to connect
   AREXPORT void remFailedConnectCB(ArFunctor1<const char *> *functor)
     { myFailedConnectCBList.remCallback(functor); }
 
-  /// Adds a callback when we switch states while starting
+  /// Adds a callback when we connect
   AREXPORT void addConnectedCB(
 	  ArFunctor1<const char *> *functor, int position = 50) 
     { myConnectedCBList.addCallback(functor, position); }
-  /// Removes a callback when we switch to running
+  /// Removes a callback when we connect
   AREXPORT void remConnectedCB(ArFunctor1<const char *> *functor)
     { myConnectedCBList.remCallback(functor); }
 

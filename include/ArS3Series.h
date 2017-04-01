@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -209,11 +210,18 @@ public:
       else
 	return false;
     }  
-  AREXPORT bool isMonitoringDataAvailable(void)
+
+  /// Disables the monitoring data
+  void sendFakeMonitoringData(bool sendFakeMonitoringData) 
+    { mySendFakeMonitoringData = sendFakeMonitoringData; } 
+  /// sees if the monitoring data is available
+  bool isMonitoringDataAvailable(void)
 		{ return myIsMonitoringDataAvailable; }
-  AREXPORT int getMonitoringData(void)
+  // gets the monitoring data
+  int getMonitoringData(void)
 		{ return myMonitoringData; }
-  AREXPORT bool compareMonitoringDataAgainst(int val)
+  // compares the monitoring data against a specific value
+  bool compareMonitoringDataAgainst(int val)
     { return myMonitoringData == val; }
 
   /// Logs the information about the sensor
@@ -225,6 +233,7 @@ protected:
   void sensorInterp(void);
   void failedToConnect(void);
   void clear(void);
+  AREXPORT bool packetHandler(ArRobotPacket *packet);
   bool myIsConnected;
   bool myTryingToConnect;
   bool myStartConnect;
@@ -233,6 +242,7 @@ protected:
 
 	bool myIsMonitoringDataAvailable;
 	int myMonitoringData;
+  bool mySendFakeMonitoringData;
 
   ArLog::LogLevel myLogLevel;
 
@@ -241,10 +251,14 @@ protected:
   ArMutex myPacketsMutex;
   ArMutex myDataMutex;
 
+  ArMutex mySafetyDebuggingTimeMutex;
+  ArTime mySafetyDebuggingTime;
+
   std::list<ArS3SeriesPacket *> myPackets;
 
   ArFunctorC<ArS3Series> mySensorInterpTask;
   ArRetFunctorC<bool, ArS3Series> myAriaExitCB;
+  ArRetFunctor1C<bool, ArS3Series, ArRobotPacket *> myPacketHandlerCB;
 };
 
 #endif 

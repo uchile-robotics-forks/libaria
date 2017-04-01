@@ -8,12 +8,12 @@ into the regular Aria or ArNetworking "native" library.
 
 To use the Aria Java wrapper you need to download a Java SDK. 
 
-On Debian 3, Debian 5, and Windows, the Sun J2SE JDK
-1.6 (Java SE6) was used to build the wrapper.  You can download it from:
+On Windows, the Sun J2SE JDK 1.7 (Java SE7) was used to build the wrapper.  
+You can download it from:
 
     http://java.sun.com/javase/downloads
 
-Find the Java SE Development Kit 6 and click "Download". (Only the JDK
+Find the Java SE Development Kit 7 and click "Download". (Only the JDK
 is needed, ARIA does not need Java EE or any other extra Java technologies.)
 
 The JDK also includes the runtime environment (JRE) that allows you to run 
@@ -67,21 +67,28 @@ using SWIG.)
 REBUILDING THE JAVA WRAPPER
 ---------------------------
 
-If you want to rebuild the Java wrapper you need to install SWIG:
-See <http://www.swig.org/download.html>  You should get at
-least version 1.3.29.  
+If you want to rebuild the Java wrapper you need to install SWIG 1.3:
+See <http://www.swig.org/download.html>. Swig 1.3 is required. 
+Swig 1.3 is the default on Ubuntu 12.04.  Swig 2 is the default on 
+later versions of Ubuntu, so you must download, build, and install 
+it from <http://www.swig.org>.  By default, the Makefile will run
+the command "swig" to invoke swig, but you can override this 
+by setting a SWIG environment variable. Do this to select Swig 1.3
+if it is named, for example, "swig1.3": export SWIG=swig1.3; or
+if it is installed in a custom location, e.g.
+export SWIG=/usr/local/swig1.3/bin/swig
 
 You then need to set the environment variable JAVA_INCLUDE to the include 
-directory in your Java SDK, and JAVA_BIN to the bin directory in your Java 
-SDK.   
+directory in your Java SDK. If the JDK tools are not in your system path,
+you may also set JAVA_BIN to the bin directory in your Java SDK.   
 
 If you installed Sun Java on Linux in "/usr/local/jdk", use 
 "/usr/local/jdk/bin" for JAVA_BIN and "/usr/local/jdk/include" for 
 JAVA_INCLUDE.  
 
-If you installed "default-jdk" on Ubuntu, then use 
-"/usr/lib/jvm/default-java/bin" for JAVA_BIN and
-"/usr/lib/jvm/default-java/include" for JAVA_INCLUDE.
+If you installed "default-jdk" on Ubuntu, then set JAVA_INCLUDE to
+"/usr/lib/jvm/default-java/include". (The JDK tools will be in your
+system path.)
 
 On Windows, use "C:\Program Files\Java\jdk1.6.0_10\bin" for 
 JAVA_BIN and "C:\Program Files\Java\jdk1.6.0_10\include" for JAVA_INCLUDE.

@@ -6,6 +6,7 @@
 #include "ArClientBase.h"
 
 /// This class takes video another source and serves it back up
+/// @deprecated Use ArVideoRemoteForwarder from the ArVideo library instead.
 class ArHybridForwarderVideo : public ArCameraCollectionItem
 {
 public:

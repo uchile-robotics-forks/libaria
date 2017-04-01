@@ -6,7 +6,8 @@
 
 //#define ARDEBUG_SERVERHANDLERCONFIG
 
-#if (defined(_DEBUG) && defined(ARDEBUG_SERVERHANDLERCONFIG))
+//#if (defined(_DEBUG) && defined(ARDEBUG_SERVERHANDLERCONFIG))
+#if (defined(ARDEBUG_SERVERHANDLERCONFIG))
 #define IFDEBUG(code) {code;}
 #else
 #define IFDEBUG(code)
@@ -42,8 +43,10 @@ AREXPORT ArServerHandlerConfig::ArServerHandlerConfig(
   myGetConfigBySectionsCB(this, &ArServerHandlerConfig::getConfigBySections),
   myGetConfigBySectionsV2CB(this, &ArServerHandlerConfig::getConfigBySectionsV2),
   myGetConfigBySectionsV3CB(this, &ArServerHandlerConfig::getConfigBySectionsV3),
+  myGetConfigBySectionsV4CB(this, &ArServerHandlerConfig::getConfigBySectionsV4),
   myGetConfigCB(this, &ArServerHandlerConfig::getConfig),
   mySetConfigCB(this, &ArServerHandlerConfig::setConfig),
+  mySetConfigParamCB(this, &ArServerHandlerConfig::setConfigParam),
   mySetConfigBySectionsCB(this, &ArServerHandlerConfig::setConfigBySections),
   mySetConfigBySectionsV2CB(this, &ArServerHandlerConfig::setConfigBySectionsV2),
   myReloadConfigCB(this, &ArServerHandlerConfig::reloadConfig),
@@ -68,6 +71,13 @@ AREXPORT ArServerHandlerConfig::ArServerHandlerConfig(
   myConfigMutex.setLogName("ArServerHandlerConfig::myConfigMutex");
   myAddedDefaultServerCommands = false;
   
+  myServer->addData("getConfigBySectionsV4", 
+                    "Gets the complete configuration information from the server", 
+                    &myGetConfigBySectionsV4CB, 
+                    "none", 
+                    "Advanced configuration retrieval, including handling of serializable.  Use ArClientHandlerConfig if desired.", 
+                    "ConfigEditing", "RETURN_UNTIL_EMPTY");
+
   myServer->addData("getConfigBySectionsV3", 
                     "Gets the complete configuration information from the server", 
                     &myGetConfigBySectionsV3CB, 
@@ -102,6 +112,13 @@ AREXPORT ArServerHandlerConfig::ArServerHandlerConfig(
 		    &mySetConfigCB,
 		    "Repeating pairs of strings which are parameter name and value to parse",
 		    "string: if empty setConfig worked, if the string isn't empty then it is the first error that occured (all non-error parameters are parsed, and only the first error is reported)",
+		    "ConfigEditing", "RETURN_SINGLE|IDLE_PACKET");
+  
+  myServer->addData("setConfigParam", 
+		    "Sets the value of a single configuration parameter",
+		    &mySetConfigParamCB,
+		    "TODO",
+		    "string: empty if successful, otherwise the first error that occurred",
 		    "ConfigEditing", "RETURN_SINGLE|IDLE_PACKET");
   
   myServer->addData("setConfigBySections", 
@@ -711,12 +728,19 @@ AREXPORT bool ArServerHandlerConfig::handleGetConfigSection
 
 } // end method handleGetConfigSection
 
+AREXPORT void ArServerHandlerConfig::getConfigBySectionsV4(ArServerClient *client, 
+                                                           ArNetPacket *packet)
+{
+  doGetConfigBySections(client, packet, 4);
+
+} // end method getConfigBySectionsV4
+
 AREXPORT void ArServerHandlerConfig::getConfigBySectionsV3(ArServerClient *client, 
                                                            ArNetPacket *packet)
 {
   doGetConfigBySections(client, packet, 3);
 
-} // end method getConfigBySectionsV2
+} // end method getConfigBySectionsV3
 
 AREXPORT void ArServerHandlerConfig::getConfigBySectionsV2(ArServerClient *client, 
                                                            ArNetPacket *packet)
@@ -887,6 +911,34 @@ AREXPORT void ArServerHandlerConfig::setConfig(ArServerClient *client,
   internalSetConfig(client, packet, 0);
 }
 
+
+AREXPORT void ArServerHandlerConfig::setConfigParam(ArServerClient *client, 
+                                                    ArNetPacket *packet)
+{
+  // MPL 9/13/12 added this lock when I added the setPreventChanges
+  // function call
+  myConfigMutex.lock();
+  if (myPreventChanges)
+  {
+    ArNetPacket retPacket;
+    retPacket.strToBuf(myPreventChangesString.c_str());
+    ArLog::log(ArLog::Normal, "setConfigParam prevented because '%s'",
+	       myPreventChangesString.c_str());
+    if (client != NULL)
+    {
+      client->sendPacketTcp(&retPacket);
+      ArNetPacket emptyPacket;
+      emptyPacket.setCommand(myServer->findCommandFromName("configUpdated"));
+      client->sendPacketTcp(&emptyPacket);
+    }
+    return;
+  }
+  myConfigMutex.unlock();
+
+  internalSetConfig(client, packet, 4);
+}
+
+
 AREXPORT void ArServerHandlerConfig::setConfigBySections(ArServerClient *client, 
                                                ArNetPacket *packet)
 {
@@ -945,9 +997,10 @@ AREXPORT void ArServerHandlerConfig::setConfigBySectionsV2(ArServerClient *clien
 **/
 
 bool ArServerHandlerConfig::internalSetConfig(ArServerClient *client, 
-					      ArNetPacket *packet,
-                int version,
-                bool isMultiplePackets)
+					                                    ArNetPacket *packet,
+                                              int version,
+                                              bool isMultiplePackets,
+                                              bool isSingleParam)
 {
   char param[1024];
   char argument[1024];
@@ -1000,16 +1053,23 @@ bool ArServerHandlerConfig::internalSetConfig(ArServerClient *client,
     builder->setExtraString(param);
     builder->addPlain(argument);
 
-    ArLog::log(ArLog::Verbose, "Config: \"%s\" \"%s\"", param, argument);
+    ArLog::LogLevel level = ArLog::Verbose;
+    IFDEBUG(
+      if (ArUtil::strcasecmp(sectionName.c_str(), "Touchscreen") == 0) {
+        level = ArLog::Normal;
+      }
+    );
+    ArLog::log(level,
+               "Config: \"%s\" \"%s\"", param, argument);
 
     // if the param name here is "Section" we need to parse sections,
     // otherwise we parse the argument
     if (strcasecmp(param, "Section") == 0) {
 
       if (builder->getArgc() > 0) {
-//        ArLog::log(ArLog::Normal,
-//                   "***** Receiving config section %s",
-//                   builder->getArg(0));
+        IFDEBUG(ArLog::log(ArLog::Normal,
+                           "ArServerHandlerConfig::internalSetConfig() Receiving config section %s",
+                           builder->getArg(0)));
         sectionName = builder->getArg(0);
       }
       if (!config->parseSection(builder, errorBuffer, sizeof(errorBuffer))) {
@@ -1087,12 +1147,10 @@ bool ArServerHandlerConfig::internalSetConfig(ArServerClient *client,
     // KMC 1/22/13 To only log some of the config, substitute the commented
     // lines below for the following config->log statement. 
 
-    IFDEBUG(config->log(false, NULL, myLogPrefix.c_str()));
-  /***
-    std::list<std::string> sectionNameList;
-    sectionNameList.push_back("Data Log Settings");
-    IFDEBUG(config->log(false, &sectionNameList, myLogPrefix.c_str()));
-  ***/
+//    IFDEBUG(config->log(false, NULL, myLogPrefix.c_str()));
+//    std::list<std::string> sectionNameList;
+//    sectionNameList.push_back("Touchscreen");
+//    IFDEBUG(config->log(false, &sectionNameList, myLogPrefix.c_str()));
 
     if (firstError[0] == '\0')
     {
@@ -1396,6 +1454,16 @@ AREXPORT bool ArServerHandlerConfig::writeConfig(void)
   bool ret;
   std::list<ArFunctor *>::iterator fit;
 
+  bool origSaveUnknown = myConfig->getSaveUnknown();
+
+  IFDEBUG(ArLog::log(ArLog::Normal,
+                     "ArServerHandlerConfig::writeConfig() origSaveUnknown = %i",
+                     origSaveUnknown));
+
+  // KMC 12/11/13 I don't think that this has any effect.  Should perhaps
+  // be removed in the future.
+  myConfig->setSaveUnknown(true);
+
   if (myConfig->getFileName() != NULL && 
       strlen(myConfig->getFileName()) > 0)
   {
@@ -1404,9 +1472,10 @@ AREXPORT bool ArServerHandlerConfig::writeConfig(void)
 	       fit != myPreWriteCallbacks.end(); 
 	       fit++) 
     {
-      IFDEBUG(ArLog::log(ArLog::Normal,
-                         "ArServerHandlerConfig::writeConfig() invoking pre-write callback %s",
-                         (%fit)->getName()));
+      IFDEBUG(ArLog::log
+                 (ArLog::Normal,
+                  "ArServerHandlerConfig::writeConfig() invoking pre-write callback %s",
+                  (*fit)->getName()));
 
       (*fit)->invoke();
     }
@@ -1427,9 +1496,11 @@ AREXPORT bool ArServerHandlerConfig::writeConfig(void)
     {
       IFDEBUG(ArLog::log(ArLog::Normal,
                          "ArServerHandlerConfig::writeConfig() invoking post-write callback %s",
-                         (%fit)->getName()));
+                         (*fit)->getName()));
       (*fit)->invoke();
     }
+  
+    myConfig->setSaveUnknown(origSaveUnknown);
   }
   else
   {
@@ -1546,6 +1617,7 @@ AREXPORT void ArServerHandlerConfig::setPreventChanges(bool preventChanges, cons
   myConfigMutex.unlock();
 }
 
+/// The callbackes added via addRestartIOCB(), if any, are invoked.
 AREXPORT void ArServerHandlerConfig::restartIO(const char *reason)
 {
   ArLog::log(ArLog::Normal, "%sRequesting restartIO because '%s'", 
@@ -1553,6 +1625,7 @@ AREXPORT void ArServerHandlerConfig::restartIO(const char *reason)
   myRestartIOCBList.invoke();
 }
 
+/// Clients are notified via configCausingRestart packet containing value 1, then the restart-software callback set by setRestartSoftwareCB(), if any, is invoked 1 second after the server has finished sending pending packets.
 AREXPORT void ArServerHandlerConfig::restartSoftware(const char *reason)
 {
   ArLog::log(ArLog::Normal, "%sAbout to broadcast configCausingRestart (software)",
@@ -1586,6 +1659,7 @@ AREXPORT void ArServerHandlerConfig::restartSoftware(const char *reason)
   // the central server)
 }
 
+/// Clients are notified via configCausingRestart packet containing value 2, then the restart-hardware callback set by setRestartHardwareCB(), if any, is invoked 1 second after the server has finished sending pending packets.
 AREXPORT void ArServerHandlerConfig::restartHardware(const char *reason)
 {
   ArLog::log(ArLog::Normal, "%sAbout to broadcast configCausingRestart (hardware)",

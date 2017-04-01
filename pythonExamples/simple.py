@@ -1,8 +1,9 @@
 """
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -23,66 +24,52 @@ Adept MobileRobots for information about a commercial version of ARIA at
 robots@mobilerobots.com or 
 Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 """
+
 from AriaPy import *
 import sys
 
-# Global library initialization, just like the C++ API:
-Aria_init()
 
-parser = ArArgumentParser(sys.argv)
-parser.loadDefaultArguments()
+robot = Aria.connectToRobot()
 
-# Create a robot object:
-robot = ArRobot()
-
-
-# Create a "simple connector" object and connect to either the simulator
-# or the robot. Unlike the C++ API which takes int and char* pointers, 
-# the Python constructor just takes argv as a list.
-print "Connecting..."
-
-con = ArRobotConnector(parser, robot)
-if not Aria_parseArgs():
-    Aria_logOptions()
-    Aria_exit(1)
-
-if not con.connectRobot():
-    print "Could not connect to robot, exiting"
-    Aria_exit(1)
-
-
-# Run the robot threads in the background:
-print "Running..."
-robot.runAsync(1)
-
-# Drive the robot a bit, then exit.
-robot.lock()
-print "Robot position using ArRobot accessor methods: (", robot.getX(), ",", robot.getY(), ",", robot.getTh(), ")"
-pose = robot.getPose()
-print "Robot position by printing ArPose object: ", pose
-print "Robot position using special python-only ArPose members: (", pose.x, ",", pose.y, ",", pose.th, ")"
-print "Sending command to move forward 1 meter..."
+print('Running...')
 robot.enableMotors()
-robot.move(1000)
-robot.unlock()
+robot.runAsync()
 
-print "Sleeping for 5 seconds..."
-ArUtil_sleep(5000)
+def printRobotPos():
+  print(robot.getPose())
 
-robot.lock()
-print "Sending command to rotate 90 degrees..."
-robot.setHeading(90)
-robot.unlock()
+robot.addSensorInterpTask(printRobotPos)
 
-print "Sleeping for 5 seconds..."
-ArUtil_sleep(5000)
+# Drive the robot in a circle by requesting
+# Constant rotation and forward velocity 
+# components.
+def driveRobot():
+  print('drive')
+  robot.setVel(200)   # forward mm/s
+  robot.setRotVel(15) # turn deg/s
 
-robot.lock()
-print "Robot position (", robot.getX(), ",", robot.getY(), ",", robot.getTh(), ")"
-pose = robot.getPose()
-print "Robot position by printing ArPose object: ", pose
-print "Robot position using special python-only ArPose members: (", pose.x, ",", pose.y, ",", pose.th, ")"
-robot.unlock()
 
-print "Exiting."
-Aria_shutdown()
+robot.addUserTask(driveRobot, 'drive')
+
+
+# After 5 seconds, replace the user task with a new one.  In Python, you can
+# define a new function with the same name. The old function still exists, and
+# ArRobot will continue to call it.  So use replaceUserTask() to remove the old
+# task named 'drive' and then add the new task named 'drive' which will call the
+# new function.
+ArUtil.sleep(6000);
+
+x  =23
+def driveRobot():
+  print 'drive redefined'
+  robot.setVel(0)
+  robot.setRotVel(0)
+  print x
+
+robot.replaceUserTask(driveRobot, 'drive')
+
+print 'Press CTRL-C to exit'
+#robot.waitForRunExit()
+
+#print('Exiting.')
+#Aria.exit(0)

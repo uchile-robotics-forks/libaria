@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -87,6 +88,7 @@ AREXPORT ArBatteryMTX::~ArBatteryMTX()
 	if (myRobot != NULL) {
 		myRobot->remSensorInterpTask (&myProcessCB);
 	}
+  Aria::remExitCallback(&myAriaExitCB);
 }
 
 AREXPORT int ArBatteryMTX::getAsyncConnectState()
@@ -197,6 +199,8 @@ AREXPORT bool ArBatteryMTX::disconnect (void)
 	if (!isConnected())
 		return true;
 	ArLog::log (ArLog::Normal, "%s: Disconnecting", getName());
+  if(myConn)
+    myConn->close();
 	return true;
 }
 
@@ -346,9 +350,12 @@ void ArBatteryMTX::sensorInterp (void)
 
 void ArBatteryMTX::interpBasicInfo(void)
 {
-  // if the charger isn't on put us to the not charging state
-  if (!(myStatusFlags & STATUS_CHARGER_ON) && 
-      !(myStatusFlags & STATUS_CHARGING))
+  // If we don't think we're on a charger, or if the charger isn't on
+  // put us to the not charging state
+  if (!(myStatusFlags & STATUS_ON_CHARGER) ||
+
+      (!(myStatusFlags & STATUS_CHARGER_ON) && 
+       !(myStatusFlags & STATUS_CHARGING)))
   {
     myChargeState = ArRobot::CHARGING_NOT;
   } 
@@ -386,7 +393,8 @@ void ArBatteryMTX::interpBasicInfo(void)
   }
 
   /* MPL This isn't working correctly right now since there's an issue
-   * with firmware (or hardware).  
+   * with firmware (or hardware).  Taking it out for now before the
+   * clicking it can cause when stuck drives anyone crazy.
 
   if (myStatusFlags & STATUS_ON_BUTTON_PRESSED)
   {

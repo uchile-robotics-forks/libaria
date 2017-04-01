@@ -93,7 +93,8 @@ public:
 	  bool masterServer = false, bool slaveServer = false,
 	  bool logPasswordFailureVerbosely = false, 
 	  bool allowSlowPackets = true, bool allowIdlePackets = true,
-	  int maxClientsAllowed = -1);
+	  int maxClientsAllowed = -1,
+	  int warningTimeMSec = 250);
 
   /// Destructor
   AREXPORT virtual ~ArServerBase();
@@ -437,6 +438,8 @@ protected:
   ArSocket myUdpSocket;
   std::list<ArFunctor*> myCycleCallbacks;
   std::list<ArFunctor1<ArServerClient *> *> myClientRemovedCallbacks;
+  
+  ArTimeChecker myTimeChecker;
 
   ArTypes::UByte4 myConnectionNumber;
 
@@ -447,7 +450,7 @@ protected:
   int myNumClients;
   
 
-  unsigned int myLoopMSecs;
+  int myLoopMSecs;
 
   ArMutex myAddListMutex;
   std::list<ArServerClient *> myAddList;
@@ -494,8 +497,18 @@ protected:
     /// Destructor
     virtual ~SlowIdleThread(void);
     virtual void *runThread(void *arg);
+
+    /// Add a callback to be called at every cycle
+    AREXPORT void addCycleCallback(ArFunctor* functor);
+
+    /// Remove a callback to be called at every cycle
+    AREXPORT void remCycleCallback(ArFunctor* functor);
+
   protected:
     ArServerBase *myServerBase;
+    ArMutex myCycleCallbacksMutex;
+    std::list<ArFunctor*> myCycleCallbacks;
+  
   };
   friend class ArServerBase::SlowIdleThread;
 

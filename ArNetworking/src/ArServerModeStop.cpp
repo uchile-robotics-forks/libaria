@@ -86,7 +86,9 @@ AREXPORT void ArServerModeStop::netStop(ArServerClient *client,
 
 AREXPORT void ArServerModeStop::userTask(void)
 {
-  if (myRobot->getVel() < 2 && myRobot->getRotVel() < 2)
+  /// MPL 2014_04_17 centralizing all the places stopped is calculated
+  //if (myRobot->getVel() < 2 && myRobot->getRotVel() < 2)
+  if (myRobot->isStopped())
   {
     myStatus = "Stopped";
   }

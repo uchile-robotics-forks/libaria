@@ -7,7 +7,7 @@ AREXPORT ArServerInfoStrings::ArServerInfoStrings(ArServerBase *server) :
   myNetGetStringsInfoCB(this, &ArServerInfoStrings::netGetStringsInfo),
   myNetGetStringsCB(this, &ArServerInfoStrings::netGetStrings)
 {
-  myStringsMutex.setLogName("ArServerInfoStrings::mySTringsMutex");
+  myStringsMutex.setLogName("ArServerInfoStrings::myStringsMutex");
   myServer = server;
   if (myServer != NULL)
   {
@@ -21,7 +21,7 @@ AREXPORT ArServerInfoStrings::ArServerInfoStrings(ArServerBase *server) :
 	      "Gets the strings, for info about them see getStringsInfo",
 		      &myNetGetStringsCB,
 		      "none",
-		      "byte2: count, repeating count: string", 
+		      "repeating: string", 
 		      "NavigationInfo", "RETURN_SINGLE");
     
   }

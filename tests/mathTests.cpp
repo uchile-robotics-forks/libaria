@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -27,7 +28,7 @@ Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 #include "ariaUtil.h"
 #include <stdio.h>
 #include <assert.h>
-#include <math.h>
+#include <cmath>
 
 /* Also see angleBetweenTest.cpp, angleFixTest.cpp and anglesTest.cpp for the angle comparison functions. */
 
@@ -43,4 +44,13 @@ int main(int argc, char ** argv)
   assert(ArMath::roundInt(INT_MIN) == INT_MIN);
   assert(rint(0) == ArMath::roundInt(0));
   assert(rint(0.000000001) == ArMath::roundInt(0.000000001));
+  assert(ArMath::isFinite( (float)23.0 ));
+  assert(ArMath::isFinite( (double)42.0 ));
+  assert(!ArMath::isFinite(sqrt(-1.0)));
+  assert(ArMath::isNan(nan("")));
+  assert(ArMath::isNan(nanf("")));
+  assert(!ArMath::isNan( 123.2 ));
+  assert(ArMath::compareFloats(0.01, 0.02, 0.05));
+  ArLog::log(ArLog::Normal, "All tests completed.");
+  return 0; 
 }

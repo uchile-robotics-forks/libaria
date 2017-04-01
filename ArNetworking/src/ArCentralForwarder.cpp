@@ -46,6 +46,39 @@ AREXPORT ArCentralForwarder::ArCentralForwarder(
   myRobotHasCentralServerHeartbeat = false;
 }
 
+AREXPORT ArCentralForwarder::ArCentralForwarder() : 
+  myReceiveDataFunctor(this, &ArCentralForwarder::receiveData),
+  myInternalRequestChangedFunctor(this, 
+				  &ArCentralForwarder::internalRequestChanged),
+  myInternalRequestOnceFunctor(this, 
+			       &ArCentralForwarder::internalRequestOnce,
+			       NULL, NULL, true),
+  myRobotServerClientRemovedCB(
+	  this, &ArCentralForwarder::robotServerClientRemoved),
+  myNetCentralHeartbeatCB(this, &ArCentralForwarder::netCentralHeartbeat),
+  myClientServerClientRemovedCB(
+	  this, &ArCentralForwarder::clientServerClientRemoved)
+{
+  myMainServer = NULL;
+  mySocket = NULL;;
+  myRobotName = "Unset";
+  myStartingPort = 0;
+  myUsedPorts = NULL;
+  myForwarderServerClientRemovedCB = NULL;
+  myEnforceProtocolVersion = "";
+  myEnforceType = ArServerCommands::TYPE_UNSPECIFIED;
+
+  myPrefix = "ArCentralForwarder_";
+  myPrefix += myRobotName;
+  myPrefix += ": ";
+  myServer = NULL;
+  myClient = NULL;
+  myPort = 0;
+  myState = STATE_STARTING;
+  myBeingReplaced = false;
+  myRobotHasCentralServerHeartbeat = false;
+}
+
 
 AREXPORT ArCentralForwarder::~ArCentralForwarder()
 {
@@ -280,7 +313,20 @@ AREXPORT bool ArCentralForwarder::gatheringCallOnce(
        dIt++)
   {
     clientData = (*dIt).second;
-    
+
+		// PS 10/22/13 - fix to crash, we don't know how
+		// we got the NULL client data - this occured when
+		// removing an addData from the robot side for 
+		// EM packet support
+		// So just test for null data and continue
+		if (clientData == NULL) {
+      ArLog::log(ArLog::Normal, 
+		 "%sClientData is NULL",
+		 myPrefix.c_str());
+
+			continue;
+		}
+
     if (myMainServer->dataHasFlag(clientData->getName(), 
 				"MAIN_SERVER_ONLY"))
     {
@@ -428,9 +474,12 @@ AREXPORT bool ArCentralForwarder::connectedCallOnce(
 
 void ArCentralForwarder::robotServerClientRemoved(ArServerClient *client)
 {
+
+  /*  MPL 2013_12_27 commenting this part out in favor of a simpler version 
   std::map<unsigned int, std::list<ArServerClient *> *>::iterator rIt;
   std::list<ArServerClient *> *requestList = NULL;
   std::list<ArServerClient *>::iterator scIt;
+  std::list<ArServerClient *>::iterator scIt2;
 
   printf("Client disconnected\n");
   for (rIt = myRequestOnces.begin(); rIt != myRequestOnces.end(); rIt++)
@@ -442,7 +491,9 @@ void ArCentralForwarder::robotServerClientRemoved(ArServerClient *client)
     while (foundOne)
     {
       foundOne = false;
-      // see if we found one
+      // see if we find one... if we do we bail out of this loop
+      // (since the iterators aren't valid anymore) and go back to the
+      // while
       for (scIt = requestList->begin(); 
 	   !foundOne && scIt != requestList->end(); 
 	   scIt++)
@@ -452,18 +503,47 @@ void ArCentralForwarder::robotServerClientRemoved(ArServerClient *client)
 	  foundOne = true;
 	  printf("Got...\n");
 	  requestList->insert(scIt, (ArServerClient*)NULL);
-	  for (scIt = requestList->begin(); 
-	       scIt != requestList->end(); 
-	       scIt++)
+	  for (scIt2 = requestList->begin(); 
+	       scIt2 != requestList->end(); 
+	       scIt2++)
 	  {
-	    if ((*scIt) == client)
+	    if ((*scIt2) == client)
 	    {
-	      requestList->erase(scIt);
+	      // erase it if we found one, then bail out of this,
+	      // which should take us back to the while because of the
+	      // check in the outer loop of !foundOne
+	      requestList->erase(scIt2);
 	      printf("Removed request for client %p\n", client);
 	      break;
 	    }
 	  }
 	}
+      }
+    }
+  }
+  */
+
+  std::map<unsigned int, std::list<ArServerClient *> *>::iterator rIt;
+  std::list<ArServerClient *> *requestList = NULL;
+  std::list<ArServerClient *>::iterator scIt;
+  bool printing = true;
+
+  if (printing)
+    ArLog::log(ArLog::Normal, "%sClient %s removed", myPrefix.c_str(),
+	       client->getIPString());
+  for (rIt = myRequestOnces.begin(); rIt != myRequestOnces.end(); rIt++)
+  {
+    requestList = (*rIt).second;
+    // loop through the requests and replace any for this client with NULL
+    for (scIt = requestList->begin(); 
+	 scIt != requestList->end(); 
+	 scIt++)
+    {
+      if ((*scIt) == client)
+      {
+	if (printing)
+	  ArLog::log(ArLog::Normal, "%sRemoved client %s from list %u", myPrefix.c_str(), client->getIPString(), (*rIt).first);
+	(*scIt) = NULL;
       }
     }
   }

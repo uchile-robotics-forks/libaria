@@ -344,13 +344,38 @@ void ArServerClient::sendListPacket(void)
 	serverData->getCommandGroup()[0] == '\0' || 
 	myGroups.count(serverData->getCommandGroup()) != 0 || 
 	myGroups.count("all") != 0)
-    {
+    {      
+      // this if is a quick and dirty way to fix to prevent overruns,
+      // before we overrun it sends the packet with what we have, then
+      // it sends another packet for the rest...  we need a real
+      // solution later MPL TODO 2013_12_13 but this should be fine
+      // (since the client doesn't generally care as much about if the
+      // args/rets are there)
+      if (packet.getLength() + 2 + ArNetPacket::FOOTER_LENGTH + 
+	  strlen(serverData->getArgumentDescription()) + 
+	  strlen(serverData->getReturnDescription()) > ArNetPacket::MAX_LENGTH)
+      {
+	// put the real number of entries in the right spot
+	longLen = packet.getLength();
+	packet.setLength(shortLen);
+	packet.uByte2ToBuf(count);
+	packet.setLength(longLen);
+	sendPacketTcp(&packet);
+	
+	/// reset it all back down to 0
+	packet.empty();
+	packet.setCommand(ArServerCommands::LISTARGRET);
+	
+	// number of entries (we'll overwrite it later with the right number)
+	shortLen = packet.getLength();
+	packet.uByte2ToBuf(0);
+	count = 0;
+      }
       count++;
       packet.uByte2ToBuf(serverData->getCommand());
       packet.strToBuf(serverData->getArgumentDescription());
       packet.strToBuf(serverData->getReturnDescription());
     }
-
   }
   // put the real number of entries in the right spot
   longLen = packet.getLength();
@@ -957,10 +982,16 @@ AREXPORT  bool ArServerClient::setupPacket(ArNetPacket *packet)
 
   if (packet->getLength() > ArNetPacket::MAX_LENGTH)
   {
-    ArLog::log(ArLog::Terse, 
-	       "% send packet: Packet for command %s packet is bad at %d", 
-	       myLogPrefix.c_str(), findCommandName(packet->getCommand()), 
-	       packet->getLength());
+    if (findCommandName(packet->getCommand()) != NULL)
+      ArLog::log(ArLog::Terse, 
+		 "% send packet: Packet for command %s packet is bad at %d", 
+		 myLogPrefix.c_str(), findCommandName(packet->getCommand()), 
+		 packet->getLength());
+    else
+      ArLog::log(ArLog::Terse, 
+	 "% send packet: Packet for command number %d packet is bad at %d", 
+		 myLogPrefix.c_str(), packet->getCommand(), 
+		 packet->getLength());
     return false;
   }
 

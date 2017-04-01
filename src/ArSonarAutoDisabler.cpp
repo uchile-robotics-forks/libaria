@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -59,7 +60,8 @@ AREXPORT ArSonarAutoDisabler::~ArSonarAutoDisabler()
 
 AREXPORT void ArSonarAutoDisabler::userTask(void)
 {
-  if (mySupressed && myRobot->areSonarsEnabled())
+  if (mySupressed && (myRobot->areSonarsEnabled() || 
+		      myRobot->areAutonomousDrivingSonarsEnabled()))
   {
     ArLog::log(ArLog::Normal, "SonarAutoDisabler: Supression turning off sonar");
     myRobot->disableSonar();
@@ -84,9 +86,11 @@ AREXPORT void ArSonarAutoDisabler::userTask(void)
   */
 
   // see if we moved
-  if (myRobot->isTryingToMove() || fabs(myRobot->getVel()) > 10 || 
-      fabs(myRobot->getRotVel()) > 5 || 
-      (myRobot->hasLatVel() && fabs(myRobot->getLatVel()) > 10))
+  /// MPL 2014_04_17 centralizing all the places stopped is calculated
+  //if (myRobot->isTryingToMove() || fabs(myRobot->getVel()) > 10 || 
+  //fabs(myRobot->getRotVel()) > 5 || 
+  //(myRobot->hasLatVel() && fabs(myRobot->getLatVel()) > 10))
+  if (myRobot->isTryingToMove() || !myRobot->isStopped())
   {
     myLastMoved.setToNow();
     // if our sonar are disabled and we moved and our motors are

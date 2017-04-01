@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -142,10 +143,32 @@ public:
    * wireless device). */
   AREXPORT static int getWirelessDiscardedPacketsBecauseNetConflict();
 
+  /** Get if the wireless has a link */
+  AREXPORT static int getMTXWirelessLink();
+
+  /** Get wireless network quality (for first configured
+   * wireless device). */
+  AREXPORT static int getMTXWirelessQuality();
+
+  /** Get wireless network ip address (for first configured
+   * wireless device). */
+  AREXPORT static int getMTXWirelessIpAddress1();
+  AREXPORT static int getMTXWirelessIpAddress2();
+  AREXPORT static int getMTXWirelessIpAddress3();
+  AREXPORT static int getMTXWirelessIpAddress4();
+
+  /// Gets the wireless IP address as a string
+  AREXPORT static const char *getMTXWirelessIpAddressString();
+
+
 
   AREXPORT static ArRetFunctor<int>* getWirelessLinkQualityFunctor();
   AREXPORT static ArRetFunctor<int>* getWirelessLinkNoiseFunctor();
   AREXPORT static ArRetFunctor<int>* getWirelessLinkSignalFunctor();
+
+  AREXPORT static ArRetFunctor<int>* getMTXWirelessLinkFunctor();
+  AREXPORT static ArRetFunctor<int>* getMTXWirelessQualityFunctor();
+
 
   /** @internal */
   AREXPORT static void invalidate();
@@ -155,31 +178,41 @@ public:
 private:
   
 
-  static ArMutex ourCPUMutex;
-  static double ourCPU;
-  static unsigned long ourUptime;
-  static unsigned long ourFirstUptime;
-  static unsigned long ourLastCPUTime;
-  static ArTime ourLastCPURefreshTime;
-  static ArGlobalRetFunctor<double> ourGetCPUPercentCallback;
-  static ArGlobalRetFunctor<double> ourGetUptimeHoursCallback;
-  static ArGlobalRetFunctor<unsigned long> ourGetUptimeCallback;
-  static ArGlobalRetFunctor<unsigned long> ourGetProgramUptimeCallback;
+	static ArMutex ourCPUMutex;
+	static double ourCPU;
+	static unsigned long ourUptime;
+	static unsigned long ourFirstUptime;
+	static unsigned long ourLastCPUTime;
+	static ArTime ourLastCPURefreshTime;
+	static ArGlobalRetFunctor<double> ourGetCPUPercentCallback;
+	static ArGlobalRetFunctor<double> ourGetUptimeHoursCallback;
+	static ArGlobalRetFunctor<unsigned long> ourGetUptimeCallback;
+	static ArGlobalRetFunctor<unsigned long> ourGetProgramUptimeCallback;
 
-  static ArMutex ourWirelessMutex;
-  static int ourLinkQuality, ourLinkSignal, ourLinkNoise,
-        ourDiscardedTotal, ourDiscardedDecrypt, ourDiscardedConflict;
-  static ArGlobalRetFunctor<int> ourGetWirelessLinkQualityCallback;
-  static ArGlobalRetFunctor<int> ourGetWirelessLinkNoiseCallback;
-  static ArGlobalRetFunctor<int> ourGetWirelessLinkSignalCallback;
+	static ArMutex ourWirelessMutex;
+	static int ourLinkQuality, ourLinkSignal, ourLinkNoise,
+		ourDiscardedTotal, ourDiscardedDecrypt, ourDiscardedConflict;
+	static ArGlobalRetFunctor<int> ourGetWirelessLinkQualityCallback;
+	static ArGlobalRetFunctor<int> ourGetWirelessLinkNoiseCallback;
+	static ArGlobalRetFunctor<int> ourGetWirelessLinkSignalCallback;
 
-  static void refreshCPU(); ///< Refresh CPU, if neccesary
-  static void refreshWireless(); ///< Refresh Wireless stats, if neccesary
+	static ArMutex ourMTXWirelessMutex;
+	static int ourMTXWirelessLink, ourMTXWirelessQuality, ourMTXIp1, ourMTXIp2, ourMTXIp3, ourMTXIp4;
+	static std::string ourMTXIpString;
+	static ArGlobalRetFunctor<int> ourGetMTXWirelessLinkCallback;
+	static ArGlobalRetFunctor<int> ourGetMTXWirelessQualityCallback;
 
-  
-  static ArSystemStatusRefreshThread* ourPeriodicUpdateThread;
-  static bool ourShouldRefreshWireless;
-  static bool ourShouldRefreshCPU;
+	static void refreshCPU(); ///< Refresh CPU, if neccesary
+	static void refreshWireless(); ///< Refresh Wireless stats, if neccesary
+
+	static void refreshMTXWireless(); ///< Refresh MTX Wireless stats, if neccesary
+
+
+	static ArSystemStatusRefreshThread* ourPeriodicUpdateThread;
+	static bool ourShouldRefreshWireless;
+	static bool ourShouldRefreshCPU;
+
+	static bool ourShouldRefreshMTXWireless;
 
 };
 

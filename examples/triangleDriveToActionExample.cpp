@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -26,7 +27,11 @@ Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 
 /** @example triangleDriveToActionExample.cpp Example/demonstration of
  * ArActionTriangleDriveTo, which drives the robot towards a specially shaped
- * triangular target
+ * triangular target. The triangular target by default is a convex triangle
+ * target consisting of two lines of at least 250mm each meeting at a 135 degree
+ * angle.  See the documentation for ArActionTriangleDriveTo for more
+ * information about the triangle locating and approach behavior, and how to
+ * customize it.
  *
    Press g or G to use ArActionTriangleDriveTo to detect and drive towards
    a triangular target shape.  Press s or S to stop.
@@ -39,35 +44,46 @@ Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 int main(int argc, char **argv)
 {
   Aria::init();
-
-  // parse our args and make sure they were all accounted for
-  ArSimpleConnector connector(&argc, argv);
-
   ArRobot robot;
+  ArArgumentParser parser(&argc, argv);
+  parser.loadDefaultArguments();
+  ArRobotConnector robotConnector(&parser, &robot);
+  ArLaserConnector laserConnector(&parser, &robot, &robotConnector);
 
-  // the laser. ArActionTriangleDriveTo will use this laser object since it is
-  // named "laser" when added to the ArRobot.
-  ArSick sick;
-
-  if (!connector.parseArgs() || argc > 1)
+  // Connect to the robot, get some initial data from it such as type and name,
+  // and then load parameter files for this robot.
+  if(!robotConnector.connectRobot())
   {
-    connector.logOptions();
-    Aria::exit(1);
-    return 1;
+    ArLog::log(ArLog::Terse, "triangleDriveToActionExample: Could not connect to the robot.");
+    if(parser.checkHelpAndWarnUnparsed())
+    {
+        // -help not given
+        Aria::logOptions();
+        Aria::exit(1);
+    }
   }
-  
-  // a key handler so we can do our key handling
+
+  if (!Aria::parseArgs() || !parser.checkHelpAndWarnUnparsed())
+  {
+    Aria::logOptions();
+    Aria::exit(1);
+  }
+
+  ArLog::log(ArLog::Normal, "triangleDriveToActionExample: Connected to robot.");
+
+
+  if(!laserConnector.connectLasers())
+  {
+    ArLog::log(ArLog::Terse, "triangleDriveToActionExample: Could not connect to laser(s).  Exiting.");
+    Aria::exit(3);
+    return 3;
+  }
+  ArLog::log(ArLog::Normal, "Connected to laser.");
+
   ArKeyHandler keyHandler;
-  // let the global aria stuff know about it
   Aria::setKeyHandler(&keyHandler);
-  // toss it on the robot
   robot.attachKeyHandler(&keyHandler);
 
-  // add the laser to the robot
-  robot.addRangeDevice(&sick);
-
-  ArSonarDevice sonar;
-  robot.addRangeDevice(&sonar);
   
   ArActionTriangleDriveTo triangleDriveTo;
   ArFunctorC<ArActionTriangleDriveTo> lineGoCB(&triangleDriveTo, 
@@ -93,33 +109,14 @@ int main(int argc, char **argv)
   ArActionStop stopAction;
   robot.addAction(&stopAction, 50);
   
-  // try to connect, if we fail exit
-  if (!connector.connectRobot(&robot))
-  {
-    printf("Could not connect to robot... exiting\n");
-    Aria::exit(1);
-    return 1;
-  }
-
   robot.comInt(ArCommands::SONAR, 1);
   robot.comInt(ArCommands::ENABLE, 1);
   
   // start the robot running, true so that if we lose connection the run stops
   robot.runAsync(true);
 
-  // now set up the laser
-  connector.setupLaser(&sick);
 
-  sick.runAsync();
-
-  if (!sick.blockingConnect())
-  {
-    printf("Could not connect to SICK laser... exiting\n");
-    Aria::exit(1);
-    return 1;
-  }
-
-  printf("If you press the 'g' key it'll go find a triangle, if you press 's' it'll stop.\n");
+  printf("press the 'g' key to locate a triangle shape, press 's' to stop teh robot.\n");
 
   robot.waitForRunExit();
   Aria::exit(0);

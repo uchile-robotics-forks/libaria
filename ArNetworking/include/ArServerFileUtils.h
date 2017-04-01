@@ -7,7 +7,7 @@
 
 /// Provides a list of files to clients
 /**
- * @note Linux only
+ * @linuxonly
  *
    This class is set up so that a client can get file information from
    the robot, this class ONLY lists files, and doesn't do any
@@ -52,7 +52,7 @@ protected:
 
 /// Gets files from the server
 /**
- * @note Linux only
+ * @linuxonly
  *
    This class is set up so that a client can get files the robot, this
    class ONLY gets files.  You should use this class by using
@@ -102,13 +102,13 @@ protected:
 
 /// Puts files onto the server
 /**
- * @note Linux only
+ * @linuxonly
  *
    This class is set up so that a client can put files on the robot,
    this class ONLY puts files.  This class will take a file from a
    client, writing it into the tempDir given in the constructor, then
    after receiving the file it'll move it over to the actual location
-   requested.  You should use this class by using ArClientFileToClient
+   requested.  You should use this class by using ArClientFileFromClient
    and NOT by using this classes interface directly, this is because
    the API is and will remain fairly volatile... if you need more
    functionality let us know and we'll add it if its reasonable.
@@ -198,7 +198,7 @@ protected:
 
 /// Deletes files from the server
 /**
- * @note Linux only
+ * @linuxonly
  *
    This class is set up so that a client can get delete files on the
    robot, this class ONLY deletes files.  You should use this class by

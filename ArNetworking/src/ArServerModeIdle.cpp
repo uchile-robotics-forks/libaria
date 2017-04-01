@@ -83,8 +83,10 @@ AREXPORT void ArServerModeIdle::deactivate(void)
 
 AREXPORT void ArServerModeIdle::userTask(void)
 {
-  if (fabs(myRobot->getVel()) > 2 || fabs(myRobot->getRotVel()) > 2 || 
-      (myRobot->hasLatVel() && fabs(myRobot->getLatVel()) > 2))
+  /// MPL 2014_04_17 centralizing all the places stopped is calculated
+  //if (fabs(myRobot->getVel()) > 2 || fabs(myRobot->getRotVel()) > 2 || 
+  //(myRobot->hasLatVel() && fabs(myRobot->getLatVel()) > 2))
+  if (!myRobot->isStopped())
   {
     myStatus = "Stopping";
     setActivityTimeToNow();

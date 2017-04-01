@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -85,17 +86,20 @@ private:
 public:
 
   /// Sections related to I/O, ARCL, display, network communication, etc.
-  static const char *CATEGORY_ROBOT_INTERFACE;
+  AREXPORT static const char *CATEGORY_ROBOT_INTERFACE;
   /// Sections related to robot behavior, docking, driving, navigation, etc.
-  static const char *CATEGORY_ROBOT_OPERATION;
+  AREXPORT static const char *CATEGORY_ROBOT_OPERATION;
   /// Sections related to the robot hardware and its sensors/accessories.
-  static const char *CATEGORY_ROBOT_PHYSICAL;
+  AREXPORT static const char *CATEGORY_ROBOT_PHYSICAL;
   /// Sections related to the fleet, enterprise manager, etc.
-  static const char *CATEGORY_FLEET;
+  AREXPORT static const char *CATEGORY_FLEET;
   /// Sections related to security.
-  static const char *CATEGORY_SECURITY;
+  AREXPORT static const char *CATEGORY_SECURITY;
   /// Sections related to debug, including logging, replay, etc.
-  static const char *CATEGORY_DEBUG;
+  AREXPORT static const char *CATEGORY_DEBUG;
+
+  /// Returns NULL if category name is not one of the predefined constants 
+  AREXPORT static const char *toCategoryName(const char *categoryName);
 
 public:
   /// Constructor
@@ -140,7 +144,7 @@ public:
                           std::list<std::string> *sectionsToParse = NULL,
                           ArPriority::Priority highestPriority = ArPriority::FIRST_PRIORITY,
                           ArPriority::Priority lowestPriority  = ArPriority::LAST_PRIORITY,
-			  ArConfigArg::RestartLevel *restartLevelNeeded = NULL);
+                          ArConfigArg::RestartLevel *restartLevelNeeded = NULL);
       
   /// Write out a config file
   AREXPORT bool writeFile(const char *fileName, 
@@ -151,6 +155,17 @@ public:
                           ArPriority::Priority highestPriority = ArPriority::FIRST_PRIORITY,
                           ArPriority::Priority lowestPriority  = ArPriority::LAST_PRIORITY);
 
+  /// Parse a set of text lines, in the same format as the config file.
+  AREXPORT bool parseText(const std::list<std::string> &configLines,
+                          bool continueOnErrors = false,
+                          bool *parseOk = NULL,
+                          bool *processOk = NULL,
+                          char *errorBuffer = NULL,
+                          size_t errorBufferLen = 0,
+                          std::list<std::string> *sectionsToParse = NULL,
+                          ArPriority::Priority highestPriority = ArPriority::FIRST_PRIORITY,
+                          ArPriority::Priority lowestPriority  = ArPriority::LAST_PRIORITY,
+                          ArConfigArg::RestartLevel *restartLevelNeeded = NULL);
 
   
   /// Parse a config resource file, for translation.
@@ -175,6 +190,8 @@ public:
   /// Command to add a section and its description to the specified category.
   /**
    * The category is expected to be one of the CATEGORY_ constants defined above.
+   * If the section already exists but has not yet been assigned to a category,
+   * then this method can be called to add it to the specified category.
   **/
   AREXPORT bool addSection(const char *categoryName,
                            const char *sectionName,
@@ -355,9 +372,12 @@ public:
 			       bool rememberUnknowns = true);
 
   /// Adds a section for this config to always skip
-  void addSectionNotToParse(const char *section);
+  AREXPORT void addSectionNotToParse(const char *section);
   /// Removes a section for this config to always skip
-  void remSectionNotToParse(const char *section);
+  AREXPORT void remSectionNotToParse(const char *section);
+ 
+  /// Adds the children of the given parent arg to the config parser. 
+  AREXPORT void addListNamesToParser(const ArConfigArg &parent);
 
 protected:
 
@@ -452,7 +472,6 @@ protected:
 
   void addParserHandlers(void);
   void remParserHandlers(void);
-  void addListNamesToParser(const ArConfigArg &parent);
 
   /// Optional name of the robot with which the config is associated.
   std::string myRobotName;
@@ -559,9 +578,9 @@ public:
   
   std::list<ArConfigArg> *getParams(void) { return &myParams; }
   
-  void setName(const char *name);
+  AREXPORT void setName(const char *name);
 
-  void setComment(const char *comment);
+  AREXPORT void setComment(const char *comment);
 
   AREXPORT bool addFlags(const char *flags, bool isQuiet = false);
   AREXPORT bool remFlag(const char *dataFlag);

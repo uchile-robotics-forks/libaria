@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -123,7 +124,7 @@ AREXPORT ArSimulatedLaser::ArSimulatedLaser(ArLaser *laser) :
   myCurrentReadings = new std::list<ArSensorReading *>;
   myRawReadings = myCurrentReadings;
   myIter = myAssembleReadings->begin();
-
+  myDataCBList.setLogging(false);
   myReceivedData = false;
 }
 
@@ -472,7 +473,7 @@ AREXPORT bool ArSimulatedLaser::simPacketHandler(ArRobotPacket *packet)
       if (tempIt == myAssembleReadings->end() && (i + 1 != myTotalNumReadings))
       {
 	myAssembleReadings->push_back(new ArSensorReading);
-	printf("@\n");
+	//printf("@\n");
       }
       myIter++;
     }

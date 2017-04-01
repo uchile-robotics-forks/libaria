@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -33,7 +34,7 @@ Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 
 class ArBasePacket;
 
-/** Interface to Directed Perception pan/tilt unit, imprementing the ArPTZ
+/** Interface to Directed Perception pan/tilt unit, implementing and extending the ArPTZ
  * interface.
 
 Functions such as pan(), tilt(), etc.
@@ -249,14 +250,16 @@ public:
 ///@}
 
 
-  AREXPORT double getMaxPanSlew(void) { return myMaxPanSlew; }
-  AREXPORT double getMinPanSlew(void) { return myMinPanSlew; }
-  AREXPORT double getMaxTiltSlew(void) { return myMaxTiltSlew; }
-  AREXPORT double getMinTiltSlew(void) { return myMinTiltSlew; }
-  AREXPORT double getMaxPanAccel(void) { return myMaxPanSlew; }
-  AREXPORT double getMinPanAccel(void) { return myMinPanSlew; }
-  AREXPORT double getMaxTiltAccel(void) { return myMaxTiltSlew; }
-  AREXPORT double getMinTiltAccel(void) { return myMinTiltSlew; }
+  double getMaxPanSlew(void) { return myMaxPanSlew; }
+  virtual double getMaxPanSpeed() { return getMaxPanSlew(); }
+  double getMinPanSlew(void) { return myMinPanSlew; }
+  double getMaxTiltSlew(void) { return myMaxTiltSlew; }
+  virtual double getMaxTiltSpeed() { return getMaxTiltSlew(); }
+  double getMinTiltSlew(void) { return myMinTiltSlew; }
+  double getMaxPanAccel(void) { return myMaxPanSlew; }
+  double getMinPanAccel(void) { return myMinPanSlew; }
+  double getMaxTiltAccel(void) { return myMaxTiltSlew; }
+  double getMinTiltAccel(void) { return myMinTiltSlew; }
 
 ///Enable/disable moving and holding power modes for pan and tilt
 ///@{

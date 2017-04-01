@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -216,13 +217,19 @@ AREXPORT bool ArMapId::isSameFile(const ArMapId &other) const
     return false;
   }
 
-  // If both timestamps are specified, then the must be identical...
+  // If both timestamps are specified, then they must be identical...
+  // KMC 8/29/13 Is this true?  Running CS and sim, had a scenario
+  // where everything was the same except the timestamps. Presumably
+  // sim wrote file even though nothing had changed. I think that 
+  // the file name, size and checksum comparison is probably sufficient 
+  // for this purpose.
+  /***
   if ((myTimestamp != other.myTimestamp) &&
       (isValidTimestamp()) &&
       (other.isValidTimestamp())) {
     return false;
   }
-
+  ***/
   if (myChecksumLength != other.myChecksumLength) {
     return false;
   }
@@ -588,7 +595,7 @@ void ArMapFileLineGroup::log()
 
 
 
-void ArMapFileLineSet::log(const char *prefix)
+AREXPORT void ArMapFileLineSet::log(const char *prefix)
 {
   if (prefix != NULL) {
     ArLog::log(ArLog::Normal,
@@ -614,7 +621,7 @@ void ArMapFileLineSet::log(const char *prefix)
 } // end method log
 
 
-ArMapFileLineSet::iterator ArMapFileLineSet::find(const ArMapFileLine &groupParent) {
+AREXPORT ArMapFileLineSet::iterator ArMapFileLineSet::find(const ArMapFileLine &groupParent) {
   for (iterator iter = begin(); iter != end(); iter++) {
     ArMapFileLineGroup &group = *iter;
     if ((group.getParentLine()->getLineNum() == groupParent.getLineNum()) &&
@@ -645,7 +652,7 @@ ArMapFileLineSet::iterator ArMapFileLineSet::find(const ArMapFileLine &groupPare
   return end();
 }
 
-bool ArMapFileLineSet::calculateChanges(ArMapFileLineSet &origLines,
+AREXPORT bool ArMapFileLineSet::calculateChanges(ArMapFileLineSet &origLines,
                                      ArMapFileLineSet &newLines,
                                      ArMapFileLineSet *deletedLinesOut,
                                      ArMapFileLineSet *addedLinesOut,

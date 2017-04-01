@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -236,6 +237,10 @@ AREXPORT void Aria::init(SigHandleMethod method, bool initSockets,
   Aria::laserAddCreator("s3series", ArLaserCreatorHelper::getCreateS3SeriesCB());
   Aria::laserAddCreator("lms5XX", ArLaserCreatorHelper::getCreateLMS5XXCB());
   Aria::laserAddCreator("tim3XX", ArLaserCreatorHelper::getCreateTiM3XXCB());
+  Aria::laserAddCreator("tim510", ArLaserCreatorHelper::getCreateTiM3XXCB());
+  Aria::laserAddCreator("tim551", ArLaserCreatorHelper::getCreateTiM551CB());
+  Aria::laserAddCreator("tim561", ArLaserCreatorHelper::getCreateTiM561CB());
+  Aria::laserAddCreator("tim571", ArLaserCreatorHelper::getCreateTiM571CB());
   Aria::laserAddCreator("sZseries", ArLaserCreatorHelper::getCreateSZSeriesCB());
   Aria::batteryAddCreator("mtx", ArBatteryMTXCreatorHelper::getCreateBatteryMTXCB());
   Aria::lcdAddCreator("mtx", ArLCDMTXCreatorHelper::getCreateLCDMTXCB());
@@ -1261,4 +1266,8 @@ AREXPORT const char *Aria::getIdentifier(void)
 AREXPORT void Aria::setIdentifier(const char *identifier)
 {
   ourIdentifier = identifier;
+
+  // MPL fixing the problem caused by whitespace or bad chars in the
+  // identifier (bug 14486).
+  ArUtil::fixBadCharacters(&ourIdentifier, true);
 }

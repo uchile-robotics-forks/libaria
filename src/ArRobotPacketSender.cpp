@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -137,6 +138,9 @@ AREXPORT bool ArRobotPacketSender::com(unsigned char command)
 
   myPacket.finalizePacket();
 
+  if(myTracking)
+    myPacket.log();
+
   // the old one seems wrong...  (next line)
   //  ret = myDeviceConn->write(myPacket.getBuf(), myPacket.getLength());
   ret = (myDeviceConn->write(myPacket.getBuf(), myPacket.getLength()) >= 0);
@@ -179,6 +183,9 @@ AREXPORT bool ArRobotPacketSender::comInt(unsigned char command,
   myPacket.uByte2ToBuf(argument);
 
   myPacket.finalizePacket();
+
+  if(myTracking)
+    myPacket.log();
 
   ret = (myDeviceConn->write(myPacket.getBuf(), myPacket.getLength()) >= 0);
 
@@ -226,12 +233,13 @@ AREXPORT bool ArRobotPacketSender::comStr(unsigned char command,
   
   myPacket.setID(command);
   myPacket.uByteToBuf(STRARG);
-  myPacket.uByteToBuf(size);
+  myPacket.uByteToBuf((ArTypes::UByte)size);
   myPacket.strToBuf(argument);
   
   myPacket.finalizePacket();
 
-	//myPacket.log();
+  if(myTracking)
+	  myPacket.log();
 
   ret = (myDeviceConn->write(myPacket.getBuf(), myPacket.getLength()) >= 0);
 
@@ -273,7 +281,8 @@ AREXPORT bool ArRobotPacketSender::comStrN(unsigned char command,
   
   myPacket.finalizePacket();
 
-	//myPacket.log();
+  if(myTracking)
+	  myPacket.log();
 
   ret = (myDeviceConn->write(myPacket.getBuf(), myPacket.getLength()) >= 0);
 
@@ -351,6 +360,9 @@ AREXPORT bool ArRobotPacketSender::comDataN(unsigned char command, const char* d
   myPacket.uByteToBuf(STRARG);
   myPacket.strNToBuf(data, size);
   myPacket.finalizePacket();
+
+  if(myTracking)
+    myPacket.log();
 
   ret = (myDeviceConn->write(myPacket.getBuf(), myPacket.getLength()) >= 0);
 

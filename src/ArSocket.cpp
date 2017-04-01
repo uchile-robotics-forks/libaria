@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -64,6 +65,7 @@ void ArSocket::internalInit(void)
   myStringIgnoreReturn = false;
   myStringWrongEndChars = false;
   myErrorTracking = false;
+  myFakeWrites = false;
   resetTracking();
 }
 
@@ -123,6 +125,10 @@ AREXPORT int ArSocket::recvFrom(void *msg, int len, sockaddr_in *sin)
 **/
 AREXPORT int ArSocket::write(const void *buff, size_t len)
 {
+  // this is for when we're faking ArNetworking commands over the text server
+  if (myFakeWrites)
+    return len;
+
   if (myFD < 0)
   {
     ArLog::log(ArLog::Terse, "ArSocket::write: called after socket closed");

@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -26,6 +27,10 @@ Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 #include "Aria.h"
 #include <string>
 
+#ifndef WIN32
+#include <signal.h>
+#endif
+
 /*
  * This is useful as a diagnostic tool, plus it shows all the many accessor
  * methods of ArRobot for robot state. It makes the robot wander, using sonar
@@ -33,8 +38,9 @@ Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
  * each second. Refer to the ARIA ArRobot documentation and to your robot manual
  * (section on standard ARCOS SIP packet contents) for details on the data.
  *
- * If -connectLaser command line argument is given, or is set in robot parameter
- * file, it will use th elaser as well as the sonar to wander.
+ * If lasers are configured in robot parameters (most robots are configured by
+ * default for typical laser accessories), and laser connection is successful,
+ * it will use the laser as well as the sonar to wander.
  *
  * ARIA also contains a class called ArDataLogger which is configurable through
  * ArConfig.  You can use ArDataLogger in your applications to incorporate 
@@ -218,9 +224,10 @@ int main(int argc, char **argv)
   wanderGroup.addAction(&constantVelocityAct, 25);
   ToggleActionGroup = &wanderGroup;
 
+#ifndef WIN32
   // can use SIGUSR1 to disable wandering (use Linux kill command)
   signal(SIGUSR1, toggleaction);
-
+#endif
 
   // Cycle callback to check for events
   robot.addUserTask("checkevents", 1, new ArGlobalRetFunctor1<bool, ArRobot*>(&cycleCallback, &robot));

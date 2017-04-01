@@ -16,7 +16,7 @@ class ArServerSimpleComUC
 public:
   /// Constructor
   AREXPORT ArServerSimpleComUC(ArServerHandlerCommands *handlerCommands, 
-				    ArRobot *robot);
+			       ArRobot *robot);
   /// Destructor
   AREXPORT virtual ~ArServerSimpleComUC();
   /// Handles the command

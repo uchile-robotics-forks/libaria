@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -197,6 +198,12 @@ public:
   /// Gets the shutdown state of charge
   int getStateOfChargeShutdown(void) const
     { return myStateOfChargeShutdown; }
+  const char *getFirmwareBootloaderVersion(void) const 
+    { return myFirmwareBootloaderVersion.c_str(); }
+  unsigned int getConfigFlags(void) const 
+    { return myConfigFlags; }
+  int getGyroFWVersion(void) const 
+    { return myGyroFWVersion; }
   /// internal, packet handler
   AREXPORT bool packetHandler(ArRobotPacket *packet);
   /// internal, connection callback
@@ -267,7 +274,10 @@ protected:
   unsigned char myBatteryType;
   int myStateOfChargeLow;
   int myStateOfChargeShutdown;
-  
+  std::string myFirmwareBootloaderVersion;
+  unsigned int myConfigFlags;
+  int myGyroFWVersion;
+
   // the robot
   ArRobot *myRobot;
   // whether only one request can be done or not

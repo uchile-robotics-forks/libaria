@@ -1,10 +1,17 @@
 #include "Aria.h"
 #include "ArNetworking.h"
 
-/*
-  Pass this a file to send to the server (should be made by configClient then modified).
-
-  Takes a file to send, and can take the host to send to too
+/**
+  @example configClientToServe.cpp Upload configuration to a server, read from a
+file
+   
+  Usage: ./configClientToServer <file> [server]
+  Where <file> is the filename to load and [server] is the address or hostname
+  of the ARNL, MOGS or ArNetworking server to send the new configuration to 
+  (localhost is used if omitted.)
+  
+  Note: arnlServer will receive the new configuration data but will not apply it
+  until it is in an "idle" mode, such as Stop mode.
 
  */
 
@@ -15,12 +22,12 @@ char *file;
 
 void saveConfigSucceeded(void)
 {
-  printf("HERE: Save config succeeded\n");
+  printf("Save config succeeded\n");
 }
 
 void saveConfigFailed(const char *str)
 {
-  printf("HERE: Save config failed: %s\n", str);
+  printf("Save config failed: %s\n", str);
 }
 
 void gotConfig(void)
@@ -59,7 +66,7 @@ int main(int argc, char **argv)
 	
   if (argc == 1)
   {
-    printf("Usage: %s <file> <host>\n", argv[0]);
+    printf("Usage: %s <file> [host]\n", argv[0]);
     exit(1);
   }
   file = argv[1];

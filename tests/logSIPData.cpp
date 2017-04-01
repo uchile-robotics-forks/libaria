@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -134,8 +135,9 @@ int main(int argc, char **argv)
   robot.runAsync(true);
   
   // Print data header
-#define HEADFORMAT "%-24s %-5s %-16s %-5s %-6s %-6s %-16s %-8s %-8s %-8s %-8s %-8s %-8s %-10s %-10s %-5s %-5s %s"
-#define DATAFORMAT "%-24s %03.02f %-16s %-5s %-6s %-6s %-16s %-8d %-8d %-8g %-8g %-8s %-8s %-10lu %-10lu %-5s %-5s" // doesn't include bumps details on end
+#define HEADFORMAT "%-24s %-5s %-16s %-5s %-6s %-6s %-16s %-8s %-8s %-8s %-8s %-8s %-8s %-10s %-10s %-5s %-5s %-8s %-8s %-12s %-12s %s"
+#define DATAFORMAT "%-24s % 03.02f %-16s %-5s %-6s %-6s %-16s %-8d %-8d %-8g %-8g %-8s %-8s %-10lu %-10lu %-5s %-5s %-8s %-8s %-12s %-12s" 
+// note DATAFORMAT doesn't include bumps details on end, they are printed separately
   printf("\n" HEADFORMAT "\n\n",
         "Time",
         "Volts",
@@ -154,6 +156,10 @@ int main(int argc, char **argv)
         "Enc R",
         "IR L",
         "IR R",
+        "Faults",
+        "Flags3",
+        "Mot.Enable",
+        "Son.Enable",
         "Cur Bumps, (Last Bump Pose)"
     );
 
@@ -170,9 +176,9 @@ int main(int argc, char **argv)
         timestamp,
         robot.getRealBatteryVoltage(),
         int_as_bitstring(cumulativeRobotFlags).c_str(),
-        (wasEStopTriggered ? "YES" : "   "),
-        (wasLeftMotorStalled?"YES":"   "), 
-        (wasRightMotorStalled?"YES":"   "),
+        (wasEStopTriggered ? "YES" : "no "),
+        (wasLeftMotorStalled?"YES":"no "), 
+        (wasRightMotorStalled?"YES":"no "),
         int_as_bitstring(cumulativeStallVal).c_str(),
         robot.getMotorPacCount(),
         robot.getSonarPacCount(),
@@ -182,8 +188,12 @@ int main(int argc, char **argv)
         byte_as_bitstring(robot.getDigOut()).c_str(),
         robot.getLeftEncoder(),
         robot.getRightEncoder(),
-        wasLeftIRTriggered?"YES": "   ",
-        wasRightIRTriggered?"YES":"   "
+        wasLeftIRTriggered?"YES": "no ",
+        wasRightIRTriggered?"YES":"no ",
+        robot.hasFaultFlags()?int_as_bitstring(robot.getFaultFlags()).c_str():"none",
+        robot.hasFlags3()?int_as_bitstring(robot.getFlags3()).c_str():"none",
+        robot.areMotorsEnabled()?"yes":"NO ",
+        robot.areSonarsEnabled()?"yes":"no "
       );
 
     // list indices of bumpers flaged in stallval
@@ -216,10 +226,6 @@ int main(int argc, char **argv)
     }
     puts("");
 
-    if(robot.areSonarsEnabled())
-	   puts("Sonars Enabled.");
-    else
-	   puts("Sonars Not Enabled.");
 
     // clear events to accumulate for the next second
     cumulativeRobotFlags = cumulativeStallVal = 0;

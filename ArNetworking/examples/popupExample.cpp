@@ -99,6 +99,19 @@ int main(int argc, char **argv)
   // popups:
   SensorDetectPopup(&robot, &popupServer);
 
+  // modes for controlling robot movement
+  ArServerModeStop modeStop(&server, &robot);
+  ArServerModeRatioDrive modeRatioDrive(&server, &robot);  
+  ArServerModeWander modeWander(&server, &robot);
+  modeStop.addAsDefaultMode();
+  modeStop.activate();
+
+  // allow configuration of driving and other settings
+  ArServerHandlerConfig serverHandlerConfig(&server, Aria::getConfig()); // make a config handler
+  ArLog::addToConfig(Aria::getConfig()); // let people configure logging
+
+  modeRatioDrive.addToConfig(Aria::getConfig(), "Teleop settings"); // able to configure teleop settings
+
   robot.enableMotors();
   robot.waitForRunExit();
 

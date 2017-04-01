@@ -1,8 +1,9 @@
 """
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -23,6 +24,8 @@ Adept MobileRobots for information about a commercial version of ARIA at
 robots@mobilerobots.com or 
 Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 """
+
+from __future__ import division # For correct float division in Python 2
 from AriaPy import *
 import sys
 
@@ -212,8 +215,8 @@ class ActionTurn(ArAction):
 Aria_init()
 parser = ArArgumentParser(sys.argv)
 parser.loadDefaultArguments()
-conn = ArSimpleConnector(parser)
 robot = ArRobot()
+conn = ArRobotConnector(parser, robot)
 sonar = ArSonarDevice()
 
 # Create instances of the actions defined above, plus ArActionStallRecover, 
@@ -223,15 +226,17 @@ turn = ActionTurn(400, 10)
 recover = ArActionStallRecover()
 
   
+  
+# Connect to the robot
+if not conn.connectRobot():
+  ArLog.log(ArLog.Terse, "actionExample: Could not connect to robotnot  Exiting.")
+  Aria_exit(1)
+  
 # Parse all command-line arguments
 if not Aria_parseArgs():
   Aria_logOptions()
   Aria_exit(1)
 
-# Connect to the robot
-if not conn.connectRobot(robot):
-  ArLog.log(ArLog.Terse, "actionExample: Could not connect to robotnot  Exiting.")
-  Aria_exit(1)
 
 # Add the range device to the robot. You should add all the range 
 # devices and such before you add actions
@@ -253,4 +258,4 @@ robot.enableMotors()
 # after which we exit the program.
 robot.run(1)
 
-Aria_shutdown()
+Aria_exit(0)

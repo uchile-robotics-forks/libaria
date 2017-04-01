@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -66,6 +67,8 @@ AREXPORT ArBatteryConnector::ArBatteryConnector (
 }
 AREXPORT ArBatteryConnector::~ArBatteryConnector (void)
 {
+//  Aria::remLogOptionsCB(&myLogOptionsCB);
+//  Aria::remParseArgsCB(&myParseArgsCB);
 }
 /**
  * Parse command line arguments using the ArArgumentParser given in the ArBatteryConnector constructor.
@@ -91,11 +94,9 @@ AREXPORT bool ArBatteryConnector::parseArgs (void)
     <dt>-batteryPort <i>port</i></dt>
     <dt>-bp <i>port</i></dt>
     <dd>Use the given port device name when connecting to a battery. For example, <code>COM2</code> or on Linux, <code>/dev/ttyS1</code>.
-    The default battery port is COM2, which is the typical Pioneer battery port setup.
     </dd>
-    <dt>-connectBattery</dt>
-    <dt>-cl</dt>
-    <dd>Explicitly request that the client program connect to a battery, if it does not always do so</dd>
+    <dt>-doNotConnectBattery</dt>
+    <dt>-dncb</dt>
   </dl>
  **/
 AREXPORT bool ArBatteryConnector::parseArgs (ArArgumentParser *parser)
@@ -300,6 +301,11 @@ AREXPORT bool ArBatteryConnector::parseBatteryArgs (ArArgumentParser *parser,
 bool ArBatteryConnector::internalConfigureBattery (
   BatteryData *batteryData)
 {
+	if(batteryData->myConnectReallySet && ! batteryData->myConnect)
+	{
+		ArLog::log(ArLog::Terse, "ArBatteryConnector::internalConfigure: Warning: connection to battery %d explicitly disabled by options", batteryData->myNumber);
+		return true;
+	}
 	ArBatteryMTX *battery = batteryData->myBattery;
 	if (battery == NULL) {
 		ArLog::log (ArLog::Terse, "ArBatteryConnector::internalConfigureBattery() No battery for number %d",
@@ -308,12 +314,12 @@ bool ArBatteryConnector::internalConfigureBattery (
 	}
 	// the rest handles all the connection stuff
 	const ArRobotParams *params;
-	char portBuf[1024];
 	if (batteryData->myBattery == NULL) {
 		ArLog::log (ArLog::Terse, "ArBatteryConnector::internalConfigureBattery() There is no battery, cannot connect");
 		return false;
 	}
-	sprintf (portBuf, "%d", batteryData->myBattery->getDefaultTcpPort());
+	char portBuf[8];
+	strncpy(portBuf, batteryData->myBattery->getDefaultTcpPort(), 7); portBuf[8] = 0;
 	if (myRobotConnector == NULL) {
 		ArLog::log (ArLog::Terse, "ArBatteryConnector::internalConfigureBattery() No ArRobotConnector is passed in so simulators and remote hosts will not work correctly");
 	}
@@ -330,7 +336,8 @@ bool ArBatteryConnector::internalConfigureBattery (
 							batteryData->myPort,
 							batteryData->myPortType,
 							batteryData->myBaud,
-							batteryData->myAutoConn);
+							batteryData->myAutoConn,
+							batteryData->myConnect);
 
 
 	if ( (batteryData->myPort != NULL && strlen (batteryData->myPort) > 0) &&
@@ -412,7 +419,7 @@ bool ArBatteryConnector::internalConfigureBattery (
 		batteryData->myConnectReallySet = true;
 	}
 
-	ArLog::log (ArLog::Normal, "ArBatteryConnector: Using robot params for connecting to battery %d (%s)", batteryData->myNumber, battery->getName());
+	ArLog::log (ArLog::Verbose, "ArBatteryConnector: Using robot params for connecting to battery %d (%s)", batteryData->myNumber, battery->getName());
 
 	if ( (batteryData->myConn = Aria::deviceConnectionCreate (
 	                              params->getBatteryMTXBoardPortType (batteryData->myNumber),
@@ -468,8 +475,8 @@ AREXPORT void ArBatteryConnector::logBatteryOptions (
 	if (metaOpts) {
 		ArLog::log (ArLog::Terse, "-batteryType%s <%s>", buf, Aria::batteryGetTypes());
 		ArLog::log (ArLog::Terse, "-bt%s <%s>", buf, Aria::batteryGetTypes());
-		ArLog::log (ArLog::Terse, "-connectBattery%s", buf);
-		ArLog::log (ArLog::Terse, "-cb%s", buf);
+		ArLog::log (ArLog::Terse, "-doNotConnectBattery%s", buf);
+		ArLog::log (ArLog::Terse, "-dncb%s", buf);
 	}
 	ArLog::log (ArLog::Terse, "-batteryPort%s <batteryPort>", buf);
 	ArLog::log (ArLog::Terse, "-bp%s <batteryPort>", buf);
@@ -555,7 +562,7 @@ AREXPORT bool ArBatteryConnector::setupBattery (ArBatteryMTX *battery,
 		myRobot = myRobotConnector->getRobot();
 	std::map<int, BatteryData *>::iterator it;
 	BatteryData *batteryData = NULL;
-	const ArRobotParams *params;
+	//const ArRobotParams *params;
 	if ( (it = myBatteries.find (batteryNumber)) != myBatteries.end())
 		batteryData = (*it).second;
 	if (batteryData == NULL && battery == NULL) {
@@ -633,6 +640,7 @@ AREXPORT bool ArBatteryConnector::connectBattery (ArBatteryMTX *battery,
 	else
 		return battery->blockingConnect(myBatteryLogPacketsSent, myBatteryLogPacketsReceived);
 }
+
 AREXPORT bool ArBatteryConnector::connectBatteries (
   bool continueOnFailedConnect, bool addConnectedBatteriesToRobot,
   bool addAllBatteriesToRobot, bool turnOnBatteries,
@@ -721,3 +729,24 @@ AREXPORT bool ArBatteryConnector::connectBatteries (
 	            "ArBatteryConnector: Done connecting batteries");
 	return true;
 }
+
+AREXPORT bool ArBatteryConnector::disconnectBatteries()
+{
+	std::map<int, BatteryData *>::iterator it;
+	BatteryData *batteryData = NULL;
+	ArLog::log (myInfoLogLevel, "ArBatteryConnector: Disconnecting from batteries");
+  for (it = myBatteries.begin(); it != myBatteries.end(); it++) 
+  {
+    batteryData = (*it).second;
+    if(batteryData)
+    {
+      if(myRobot)
+        myRobot->remBattery(batteryData->myBattery);
+      if(batteryData->myBattery)
+        batteryData->myBattery->disconnect();
+    }
+  }
+
+  return true;
+}
+

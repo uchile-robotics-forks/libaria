@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -107,6 +108,10 @@ public:
   AREXPORT void setRemoteIsSim(bool remoteIsSim);
   /// Gets the robot this connector is using (mostly for backwards compatibility stuff)
   AREXPORT ArRobot *getRobot(void);
+  /// Disconnect from any robot components connected to. If connectAllComponents
+  /// was not set to false in constructor, then connections to all robot components, and the
+  /// robot itself, are disconnected.
+  AREXPORT bool disconnectAll();
 protected:
   // the robot we've set up (so we can find its params)
   ArRobot *myRobot; 

@@ -1,8 +1,9 @@
 """
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -23,22 +24,27 @@ Adept MobileRobots for information about a commercial version of ARIA at
 robots@mobilerobots.com or 
 Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 """
+
+from __future__ import division # For correct float division in Python 2
 from AriaPy import *
 import sys
 
 # Wander around, avoiding obstacles, using some ArActions predefined in ARIA.
 
 Aria_init()
-parser = ArArgumentParser(sys.argv)
-parser.loadDefaultArguments()
-if not Aria_parseArgs():
-  Aria_logOptions()
-  Aria_exit(1)
 robot = ArRobot()
-conn = ArRobotConnector(parser, robot)
+parser = ArArgumentParser(sys.argv)
+conn = ArRobotConnector(parser, robot) 
+parser.loadDefaultArguments()
+
 if not conn.connectRobot():
   print "Could not connect to robot, exiting"
   Aria_exit(1)
+  
+if not Aria_parseArgs():
+  Aria_logOptions()
+  Aria_exit(1)
+
 
 
 # Most robots have sonar:

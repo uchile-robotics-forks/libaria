@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -115,6 +116,7 @@ public:
   /// Internal function to replace the sonar (only useful between parseArgs and connectSonars) but not the sonar data
   AREXPORT bool replaceSonar(ArSonarMTX *sonar, int sonarNumber);
   
+  AREXPORT bool disconnectSonars();
 protected:
 /// Class that holds information about the sonar data
 class SonarData
@@ -157,6 +159,23 @@ class SonarData
 		bool myRemoteTcpPortReallySet;
 		/// the baud we want to use
 		const char *myBaud;
+    /// Set baud convert from integer
+    void setBaud(int baud) 
+    {
+      snprintf(myBaudBuf, 256, "%d", baud);
+      myBaud = (const char*)myBaudBuf;
+    }
+    /// set AutoConn from boolean
+    void setAutoConn(bool a)
+    {
+      snprintf(myAutoConnBuf, 256, "%s", a?"true":"false");
+      myAutoConn = (const char *)myAutoConnBuf;
+    }
+private:
+    /// Stores baud string if converted from an integer by setBaud()
+    char myBaudBuf[256];
+    /// Stores AutoConn string if converted from a boolean by setAutConn()
+    char myAutoConnBuf[256];
 };
 
 	/// Turns on the power for the specific board in the firmware

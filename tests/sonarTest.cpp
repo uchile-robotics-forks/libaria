@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -28,8 +29,13 @@ Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 
 ArRobot *robot;
 
+ArTime startTime;
+
 void sonarPrinter(void)
 {
+  if(startTime.secSince() > 5)
+    Aria::exit(0);
+
   int i;
   printf("\r");
   for (i = 0; i < robot->getNumSonar(); i++)
@@ -49,29 +55,25 @@ void sonarPrinter(void)
 
 int main(int argc, char **argv) 
 {
+  Aria::init();
   std::string str;
   int ret;
   int i;
   ArSensorReading *reading;
   
   ArGlobalFunctor sonarPrinterCB(&sonarPrinter);
-  ArTcpConnection con;
-  Aria::init();
+  ArArgumentParser argP(&argc, argv);
+  argP.loadDefaultArguments();
   robot = new ArRobot;
+  ArRobotConnector con(&argP, robot);
 
-  if ((ret = con.open()) != 0)
+  if (!(con.connectRobot()))
   {
-    str = con.getOpenMessage(ret);
-    printf("Open failed: %s\n", str.c_str());
+    printf("Conn failed\n");
     exit(0);
   }
+  Aria::parseArgs();
 
-  robot->setDeviceConnection(&con);
-  if (!robot->blockingConnect())
-  {
-    printf("Could not connect to robot... exiting\n");
-    exit(0);
-  }
 
   printf("%d Sonar:  Their positions:\n", robot->getNumSonar());
   for (i = 0; i < robot->getNumSonar(); i++)
@@ -85,6 +87,8 @@ int main(int argc, char **argv)
   robot->addUserTask("Sonar printer", 50, &sonarPrinterCB);
   robot->comInt(ArCommands::SONAR, 1);
   robot->comInt(ArCommands::SOUNDTOG, 0);
+
+  puts("Will exit after 5 seconds.");
 
   robot->run(true);
   Aria::shutdown();

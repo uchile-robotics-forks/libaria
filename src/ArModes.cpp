@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -59,9 +60,9 @@ AREXPORT ArModeTeleop::~ArModeTeleop()
 
 AREXPORT void ArModeTeleop::activate(void)
 {
-  addKeyHandler('e', &myEnableMotorsCB);
   if (!baseActivate())
     return;
+  addKeyHandler('e', &myEnableMotorsCB);
   myGroup.activateExclusive();
 }
 
@@ -102,6 +103,7 @@ AREXPORT void ArModeTeleop::help(void)
     printf(" %10s", "soc");
   printf(" %10s", ""); //flags
   printf("\n");
+  fflush(stdout);
 }
 
 AREXPORT void ArModeTeleop::userTask(void)
@@ -111,15 +113,21 @@ AREXPORT void ArModeTeleop::userTask(void)
 	   myRobot->getRotVel(), myRobot->getX(), myRobot->getY(), 
 	   myRobot->getTh(), myRobot->getRealBatteryVoltage());
   else
-    printf("\r%10.0f %10.0f %10.0f %10.0f %10.0f %10.1f %10.1f", 
+    printf("\r%9.0f %9.0f %9.0f %9.0f %9.0f %9.1f %9.1f", 
 	   myRobot->getVel(), myRobot->getRotVel(), myRobot->getLatVel(),
 	   myRobot->getX(), myRobot->getY(), myRobot->getTh(), 
 	   myRobot->getRealBatteryVoltage());
   if(myRobot->haveStateOfCharge())
-    printf(" %10.1f", myRobot->getStateOfCharge());
-  if(myRobot->isEStopPressed()) printf(" [ESTOP PRESSED]"); 
-  if(myRobot->isLeftMotorStalled() || myRobot->isRightMotorStalled()) printf(" [MOTOR STALL] ");
-  if(!myRobot->areMotorsEnabled()) printf(" [MOTORS DISABLED] ");
+    printf(" %9.1f", myRobot->getStateOfCharge());
+  if(myRobot->isEStopPressed()) printf(" [ESTOP]"); 
+  if(myRobot->isLeftMotorStalled() || myRobot->isRightMotorStalled()) printf(" [STALL] "); 
+  if(!myRobot->areMotorsEnabled()) printf(" [DISABLED] "); 
+  
+  // spaces to cover previous output
+  if(!myRobot->isEStopPressed() || !(myRobot->isLeftMotorStalled() && myRobot->isRightMotorStalled()) || myRobot->areMotorsEnabled())
+    printf("                 ");
+
+  fflush(stdout);
 }
 
 AREXPORT ArModeUnguardedTeleop::ArModeUnguardedTeleop(ArRobot *robot,
@@ -139,9 +147,9 @@ AREXPORT ArModeUnguardedTeleop::~ArModeUnguardedTeleop()
 
 AREXPORT void ArModeUnguardedTeleop::activate(void)
 {
-  addKeyHandler('e', &myEnableMotorsCB);
   if (!baseActivate())
     return;
+  addKeyHandler('e', &myEnableMotorsCB);
   myGroup.activateExclusive();
 }
 
@@ -182,24 +190,31 @@ AREXPORT void ArModeUnguardedTeleop::help(void)
     printf(" %10s", "soc");
   printf(" %10s", ""); //flags
   printf("\n");
+  fflush(stdout);
 }
 
 AREXPORT void ArModeUnguardedTeleop::userTask(void)
 {
   if (!myRobot->hasLatVel())
-    printf("\r%10.0f %10.0f %10.0f %10.0f %10.1f %10.1f", myRobot->getVel(), 
+    printf("\r%9.0f %9.0f %9.0f %9.0f %9.1f %9.1f", myRobot->getVel(), 
 	   myRobot->getRotVel(), myRobot->getX(), myRobot->getY(), 
 	   myRobot->getTh(), myRobot->getRealBatteryVoltage());
   else
-    printf("\r%10.0f %10.0f %10.0f %10.0f %10.0f %10.1f %10.1f", 
+    printf("\r%9.0f %9.0f %9.0f %9.0f %9.0f %9.1f %9.1f", 
 	   myRobot->getVel(), myRobot->getRotVel(), myRobot->getLatVel(),
 	   myRobot->getX(), myRobot->getY(), myRobot->getTh(), 
 	   myRobot->getRealBatteryVoltage());
   if(myRobot->haveStateOfCharge())
-    printf(" %10.1f", myRobot->getStateOfCharge());
-  if(myRobot->isEStopPressed()) printf(" [ESTOP PRESSED] ");
-  if(myRobot->isLeftMotorStalled() || myRobot->isRightMotorStalled()) printf(" [MOTOR STALL] ");
-  if(!myRobot->areMotorsEnabled()) printf(" [MOTORS DISABLED] ");
+    printf(" %9.1f", myRobot->getStateOfCharge());
+  if(myRobot->isEStopPressed()) printf(" [ESTOP] ");
+  if(myRobot->isLeftMotorStalled() || myRobot->isRightMotorStalled()) printf(" [STALL] ");
+  if(!myRobot->areMotorsEnabled()) printf(" [DISABLED] ");
+
+  // spaces to cover previous output
+  if(!myRobot->isEStopPressed() || !(myRobot->isLeftMotorStalled() && myRobot->isRightMotorStalled()) || myRobot->areMotorsEnabled())
+    printf("                 ");
+
+  fflush(stdout);
 }
 
 AREXPORT ArModeWander::ArModeWander(ArRobot *robot, const char *name, char key, char key2): 
@@ -233,6 +248,7 @@ AREXPORT void ArModeWander::help(void)
   ArLog::log(ArLog::Terse, "Wander mode will simply drive around forwards until it finds an obstacle,");
   ArLog::log(ArLog::Terse, "then it will turn until its clear, and continue.");
   printf("%10s %10s %10s %10s %10s %10s\n", "transVel", "rotVel", "x", "y", "th", "volts");
+  fflush(stdout);
 }
 
 AREXPORT void ArModeWander::userTask(void)
@@ -240,6 +256,7 @@ AREXPORT void ArModeWander::userTask(void)
   printf("\r%10.0f %10.0f %10.0f %10.0f %10.1f %10.1f", myRobot->getVel(), 
 	 myRobot->getRotVel(), myRobot->getX(), myRobot->getY(), 
 	 myRobot->getTh(), myRobot->getRealBatteryVoltage());
+  fflush(stdout);
 }
 
 AREXPORT ArModeGripper::ArModeGripper(ArRobot *robot, const char *name, 
@@ -320,6 +337,8 @@ AREXPORT void ArModeGripper::userTask(void)
     printf("%13s", "triggered");
   else
     printf("%13s", "clear");
+  fflush(stdout);
+
   // exercise the thing
   if (myExercising)
   {
@@ -484,10 +503,14 @@ AREXPORT ArModeCamera::ArModeCamera(ArRobot *robot, const char *name,
   myCom2CB(this, &ArModeCamera::com2),
   myCom3CB(this, &ArModeCamera::com3),
   myCom4CB(this, &ArModeCamera::com4),
+  myUSBCom0CB(this, &ArModeCamera::usb0),
+  myUSBCom9CB(this, &ArModeCamera::usb9),
   myAux1CB(this, &ArModeCamera::aux1),
   myAux2CB(this, &ArModeCamera::aux2),
   myPanAmount(5),
-  myTiltAmount(3)
+  myTiltAmount(3),
+  myAutoFocusOn(true),
+  myToggleAutoFocusCB(this, &ArModeCamera::toggleAutoFocus)
 {
   myState = STATE_CAMERA;
   myExercising = false;
@@ -537,7 +560,7 @@ AREXPORT void ArModeCamera::deactivate(void)
 
 AREXPORT void ArModeCamera::userTask(void)
 {
-  if (myExercising && myCam != NULL && myLastExer.mSecSince() > 10000)
+  if (myExercising && myCam != NULL && myLastExer.mSecSince() > 7000)
   {
     switch (myExerState) {
     case CENTER:
@@ -629,6 +652,13 @@ AREXPORT void ArModeCamera::exercise(void)
     if (myCam->canZoom())
       myCam->zoom(myCam->getMaxZoom());
   }
+}
+
+AREXPORT void ArModeCamera::toggleAutoFocus()
+{
+  ArLog::log(ArLog::Terse, "Turning autofocus %s", myAutoFocusOn?"off":"on");
+  if(myCam->setAutoFocus(!myAutoFocusOn))
+    myAutoFocusOn = !myAutoFocusOn;
 }
 
 AREXPORT void ArModeCamera::help(void)
@@ -769,6 +799,18 @@ AREXPORT void ArModeCamera::com4(void)
   portToMovement();
 }
 
+AREXPORT void ArModeCamera::usb0(void)
+{
+  myConn.setPort("/dev/ttyUSB0");
+  portToMovement();
+}
+
+AREXPORT void ArModeCamera::usb9(void)
+{
+  myConn.setPort("/dev/ttyUSB9");
+  portToMovement();
+}
+
 AREXPORT void ArModeCamera::aux1(void)
 {
   myCam->setAuxPort(1);
@@ -807,14 +849,19 @@ void ArModeCamera::cameraToAux(void)
 
 void ArModeCamera::portToMovement(void)
 {
+  ArLog::log(ArLog::Normal, "ArModeCamera: Opening connection to camera on port %s", myConn.getPortName());
   if (!myConn.openSimple())
   {
     ArLog::log(ArLog::Terse, 
-	       "\n\nCould not open camera on that port, try another port.\n");
+	       "\n\nArModeCamera: Could not open camera on that port, try another port.\n");
     helpPortKeys();
     return;
   }
-  myCam->setDeviceConnection(&myConn);
+  if(!myCam->setDeviceConnection(&myConn))
+  {
+    ArLog::log(ArLog::Terse, "\n\nArModeCamera: Error setting device connection!\n");
+    return;
+  }
   myCam->init();
   myRobot->setPTZ(myCam);
   myState = STATE_MOVEMENT;
@@ -904,6 +951,8 @@ void ArModeCamera::takePortKeys(void)
   addKeyHandler('2', &myCom2CB);
   addKeyHandler('3', &myCom3CB);
   addKeyHandler('4', &myCom4CB);
+  addKeyHandler('5', &myUSBCom0CB);
+  addKeyHandler('6', &myUSBCom9CB);
 }
 
 void ArModeCamera::giveUpPortKeys(void)
@@ -912,6 +961,8 @@ void ArModeCamera::giveUpPortKeys(void)
   remKeyHandler(&myCom2CB);
   remKeyHandler(&myCom3CB);
   remKeyHandler(&myCom4CB);
+  remKeyHandler(&myUSBCom0CB);
+  remKeyHandler(&myUSBCom9CB);
 }
 
 void ArModeCamera::helpPortKeys(void)
@@ -922,6 +973,8 @@ void ArModeCamera::helpPortKeys(void)
   ArLog::log(ArLog::Terse, "%13s:  select COM2 or /dev/ttyS1", "'2'");
   ArLog::log(ArLog::Terse, "%13s:  select COM3 or /dev/ttyS2", "'3'");
   ArLog::log(ArLog::Terse, "%13s:  select COM4 or /dev/ttyS3", "'4'");
+  ArLog::log(ArLog::Terse, "%13s:  select /dev/ttyUSB0", "'5'");
+  ArLog::log(ArLog::Terse, "%13s:  select /dev/ttyUSB9", "'6'");
 }
 
 void ArModeCamera::takeAuxKeys(void)
@@ -960,6 +1013,8 @@ void ArModeCamera::takeMovementKeys(void)
     addKeyHandler('x', &myZoomOutCB);
     addKeyHandler('X', &myZoomOutCB);
   }
+  addKeyHandler('f', &myToggleAutoFocusCB);
+  addKeyHandler('F', &myToggleAutoFocusCB);
 }
 
 void ArModeCamera::giveUpMovementKeys(void)
@@ -975,6 +1030,7 @@ void ArModeCamera::giveUpMovementKeys(void)
     remKeyHandler(&myZoomInCB);
     remKeyHandler(&myZoomOutCB);
   }
+  remKeyHandler(&myToggleAutoFocusCB);
 }
 
 void ArModeCamera::helpMovementKeys(void)
@@ -993,6 +1049,7 @@ void ArModeCamera::helpMovementKeys(void)
     ArLog::log(ArLog::Terse, "%13s:  zoom in", "'z' or 'Z'");
     ArLog::log(ArLog::Terse, "%13s:  zoom out", "'x' or 'X'");
   }
+  ArLog::log(ArLog::Terse, "%13s:  toggle auto/fixed focus", "'f' or 'F'");
 }
 
 AREXPORT ArModeSonar::ArModeSonar(ArRobot *robot, const char *name, char key,
@@ -1108,6 +1165,7 @@ AREXPORT void ArModeSonar::userTask(void)
     for (i = 24; i < myRobot->getNumSonar() && i <= 31; ++i)
       printf("%6d", myRobot->getSonarRange(i)); 
   }
+  fflush(stdout);
 }
 
 AREXPORT void ArModeSonar::allSonar(void)
@@ -1471,6 +1529,7 @@ AREXPORT void ArModePosition::userTask(void)
 	   myMode == MODE_BOTH ? "both" : "either",
 	   raw.getX(), raw.getY(), raw.getTh()
     );
+  fflush(stdout);
 }
 
 AREXPORT ArModeIO::ArModeIO(ArRobot *robot, const char *name, char key, char key2): 
@@ -1628,6 +1687,7 @@ AREXPORT void ArModeIO::userTask(void)
   }
 
   printf("\r%s", myOutput);
+  fflush(stdout);
 }
 
 AREXPORT ArModeLaser::ArModeLaser(ArRobot *robot, const char *name, 
@@ -1822,8 +1882,9 @@ AREXPORT void ArModeLaser::userTask(void)
 	     farDist, farAngle);
     else
       printf("No far reading found");
-    printf("         %d readings   ", readings->size());
+    printf("         %lu readings   ", readings->size());
     myLaser->unlockDevice();
+    fflush(stdout);
   }
   else if (myState == STATE_CONNECTED && myPrintMiddle)
   {
@@ -2060,6 +2121,7 @@ AREXPORT void ArModeActs::userTask(void)
   else blob = "no blob in sight";
 
   printf("\r Channel: %d  %15s %25s %20s", myChannel, move, acquire, blob);
+  fflush(stdout);
 }
 
 // The channels
@@ -2482,6 +2544,7 @@ AREXPORT void ArModeTCM2::userTask(void)
 	 myTCM2->getTemperature(), myTCM2->getError(), 
 	 myTCM2->getCalibrationH(), myTCM2->getCalibrationV(), 
 	 myTCM2->getCalibrationM(), myTCM2->getPacCount());
+  fflush(stdout);
 
 }
 
@@ -2534,5 +2597,331 @@ void ArModeConfig::gotConfigPacket()
     myRobot->getRobotLengthRear(),
     myRobot->getRobotDiagonal() 
   );
+}
+
+
+AREXPORT ArModeRobotStatus::ArModeRobotStatus(ArRobot *robot, const char *name, char key1, char key2) :
+  ArMode(robot, name, key1, key2),
+  myRobot(robot),
+  myDebugMessageCB(this, &ArModeRobotStatus::handleDebugMessage),
+  mySafetyStateCB(this, &ArModeRobotStatus::handleSafetyStatePacket),
+  mySafetyWarningCB(this, &ArModeRobotStatus::handleSafetyWarningPacket)
+{
+}
+
+AREXPORT void ArModeRobotStatus::help()
+{
+  ArLog::log(ArLog::Terse, "Robot diagnostic flags mode prints the current state of the robot's error and diagnostic flags."); 
+  ArLog::log(ArLog::Terse, "Additional debug and status information will also be requested from the robot and logged if received.");
+}
+
+AREXPORT void ArModeRobotStatus::activate()
+{
+  if(baseActivate())
+  {
+    // only do the following on the first activate. they remain activated.
+    myRobot->lock();
+    myRobot->addPacketHandler(&myDebugMessageCB);
+    myRobot->addPacketHandler(&mySafetyStateCB);
+    myRobot->addPacketHandler(&mySafetyWarningCB);
+    myRobot->unlock();
+  }
+
+  // do the following on every activate, even if this mode already activated.
+
+  puts("");
+  printFlagsHeader();
+  printFlags();
+  puts("\n");
+    
+    
+  myRobot->lock();
+  int flags = myRobot->getFlags();
+  int faults = myRobot->hasFaultFlags() ? myRobot->getFaultFlags() : 0;
+  int flags3 = myRobot->hasFlags3() ? myRobot->getFlags3() : 0;
+  int configflags = 0;
+  const ArRobotConfigPacketReader *configreader = myRobot->getOrigRobotConfig();
+  if(configreader)
+    configflags = configreader->getConfigFlags();
+  myRobot->unlock();
+
+  if(flags)
+  {
+    puts("Flags:");
+    if(flags & ArUtil::BIT0)
+      puts("\tMotors enabled (flag 0)");
+    else
+      puts("\tMotors disabled (flag 0)");
+    if(flags & ArUtil::BIT5)
+      puts("\tESTOP (flag 5)");
+    if(flags & ArUtil::BIT9)
+      puts("\tJoystick button pressed (flag 9)");
+    if(flags & ArUtil::BIT11)
+      puts("\tHigh temperature. (flag 11)");
+    puts("\t(Flags 1-4 are sonar array enabled, flags 7-8 are legacy IR sensors");
+  }
+
+  if(faults)
+  {
+    puts("Fault Flags:");
+    if(faults & ArUtil::BIT0)
+      puts("\tPDB Laser Status Error (fault 0)");
+    if(faults & ArUtil::BIT1)
+      puts("\tHigh Temperature (fault 1)");
+    if(faults & ArUtil::BIT2)
+      puts("\tPDB Error (fault 2)");
+    if(faults & ArUtil::BIT3)
+      puts("\tUndervoltage/Low Battery (fault 3)");
+    if(faults & ArUtil::BIT4)
+      puts("\tGyro Critical Fault (fault 4)");
+    if(faults & ArUtil::BIT5)
+      puts("\tBattery Overtemperature (fault 5)");
+    if(faults & ArUtil::BIT6)
+      puts("\tBattery balance required (fault 6)");
+    if(faults & ArUtil::BIT7)
+      puts("\tEncoder degradation (fault 7)");
+    if(faults & ArUtil::BIT8)
+      puts("\tEncoder failure (fault 8)");
+    if(faults & ArUtil::BIT9)
+      puts("\tCritical general driving fault (fault 9)");
+    if(faults & ArUtil::BIT10)
+      puts("\tESTOP Mismatch Warning. One ESTOP channel may be intermittent or failing. Check connections to control panel. (ESTOP_MISMATCH_FLAG, 10)");
+    if(faults & ArUtil::BIT11)
+      puts("\tESTOP Safety Fault. ESTOP circuitry has failed. Motors disabled until safety system recommision or disabled. (ESTOP_SAFETY_FAULT, 11)");
+    if(faults & ArUtil::BIT12)
+      puts("\tLaser/speed zone failure or zone mismatch. Speed limited until safety system recommisioa or disabled.  (SPEED_ZONE_SAFETY_FAULT, 12)");
+    if(faults & ArUtil::BIT13)
+      puts("\tSAFETY_UNKNOWN_FAULT (fault 13)");
+    if(faults & ArUtil::BIT14)
+      puts("\tBacked up too fast. Reduce speed to avoid or disable safety system to allow faster reverse motion. (fault 14)");
+    if(faults & ArUtil::BIT15)
+      puts("\tJoydrive unsafe mode warning (fault 15)");
+  }
+
+  
+  if(flags3)
+  {
+    puts("Flags3:");
+    if(flags3 & ArUtil::BIT0)
+      puts("\tJoystick override mode enabled (0)");
+    if(flags3 & ArUtil::BIT1)
+      puts("\tAmp. comm. error (1)");
+    if(flags3 & ArUtil::BIT2)
+      puts("\tSilent E-Stop (2)");
+    if(flags3 & ArUtil::BIT3)
+      puts("\tLaser safety circuit error (S300 error 'n') (3)");
+    if(~flags3 & ArUtil::BIT4)
+      puts("\tRotation control loop not enabled (4)");
+    if(flags3 & ArUtil::BIT5)
+      puts("\tRotation integrator saturated (5)");
+  }
+    
+  
+  if(configflags & ArUtil::BIT0)
+  {
+    puts("ConfigFlags:");
+    puts("\tFirmware boot error. Robot controller bootloader detected but no firmware. (config flag 0 set)");
+  }
+
+  fflush(stdout);
+
+  // TODO keys to enable/disable: LogMovementSent, LogMovementReceived,
+  // LogVelocitiesReceived, PacketsReceivedTracking, LogSIPContents,
+  // PacketsSentTracking.
+  // TODO keys to start/stop WHEEL_INFO
+  
+  // TODO get simulator info
+
+  myRobot->comInt(214, 1); // request state of safety systems
+
+  // print first header line for user task refresh
+  puts("");
+  printFlagsHeader();
+}
+
+AREXPORT void ArModeRobotStatus::deactivate()
+{
+  if(!baseDeactivate()) return;
+  // commented out to keep packet handlers active so we can use other modes and see responses.
+  //myRobot->remPacketHandler(&myDebugMessageCB);
+  //myRobot->remPacketHandler(&mySafetyStateCB);
+  //myRobot->remPacketHandler(&mySafetyWarningCB);
+}
+
+AREXPORT void ArModeRobotStatus::userTask()
+{
+  printFlags();
+  printf("\r");
+  fflush(stdout);
+}
+  
+
+void ArModeRobotStatus::printFlagsHeader()
+{
+  const char* headerfmt = 
+    "%-5s "  // volts
+    "%-5s "  // soc
+    "%-5s "     // temp
+    "%-12s "     // mot.enable?
+    "%-6s "      // estop?
+    "%-7s "      // stallL?
+    "%-7s "      // stallR?
+    "%-16s "     // stallval
+    "%-9s "      // #sip/sec    
+    "%-10s "     // cycletime
+    "%-16s "     // flags
+    "%-16s "     // fault flags
+    "%-32s "     // flags3
+    "%-13s "     // chargestate
+    "%-13s "     // chargerpower
+    "\n";
+
+
+  printf(headerfmt,
+        "volt",
+        "soc",
+        "temp",
+        "mot.enable",
+        "estop",
+        "stall l",
+        "stall r",
+        "stallval",
+        "sips/sec",
+        "cycletime",
+        "flags",
+        "faults",
+        "flags3",
+        "chargestate",
+        "chargepower"
+    );
+}
+
+void ArModeRobotStatus::printFlags()
+{
+  const char* datafmt = 
+    "%-03.02f "  // volts
+    "%-03.02f "  // soc
+    "%- 03d "     // temp
+    "%-12s "     // mot.enable?
+    "%-6s "      // estop?
+    "%-7s "      // stallL?
+    "%-7s "      // stallR?
+    "%-16s "     // stallval
+    "%-9d "      // #sip/sec    
+    "%-10d "     // cycletime
+    "%-16s "     // flags
+    "%-16s "     // fault flags
+    "%-32s "     // flags3
+    "%-12s "     // chargestate
+    "%-13s "     // chargerpower
+  ;
+
+  myRobot->lock();
+
+  printf(datafmt,
+    myRobot->getRealBatteryVoltage(),
+    myRobot->getStateOfCharge(),
+    myRobot->getTemperature(),
+    myRobot->areMotorsEnabled()?"yes":"NO",
+    myRobot->isEStopPressed()?"YES":"no",
+    myRobot->isLeftMotorStalled()?"YES":"no",
+    myRobot->isRightMotorStalled()?"YES":"no",
+    int16_as_bitstring(myRobot->getStallValue()).c_str(),
+    myRobot->getMotorPacCount() ,
+    myRobot->getCycleTime() ,
+    int16_as_bitstring(myRobot->getFlags()).c_str(),
+    myRobot->hasFaultFlags() ? int16_as_bitstring(myRobot->getFaultFlags()).c_str() : "n/a",
+    myRobot->hasFlags3() ? int32_as_bitstring(myRobot->getFlags3()).c_str() : "n/a",
+    myRobot->getChargeStateName(),
+    myRobot->isChargerPowerGood() ? "YES" : "no"
+  );
+  myRobot->unlock();
+}
+
+bool ArModeRobotStatus::handleDebugMessage(ArRobotPacket *pkt)
+{
+  if(pkt->getID() != ArCommands::MARCDEBUG) return false;
+  char msg[256];
+  pkt->bufToStr(msg, sizeof(msg));
+  msg[255] = 0;
+  ArLog::log(ArLog::Terse, "Firmware Debug Message Received: %s", msg);
+  return true;
+}
+
+
+/// return unsigned byte as string of 8 '1' and '0' characters (MSB first, so
+/// bit 0 will be last character in string, bit 7 will be first character.)
+/// @todo generalize with others to any number of bits
+std::string ArModeRobotStatus::byte_as_bitstring(unsigned char byte) 
+{
+  char tmp[9];
+  int bit; 
+  int ch;
+  for(bit = 7, ch = 0; bit >= 0; bit--,ch++)
+    tmp[ch] = ((byte>>bit)&1) ? '1' : '0';
+  tmp[8] = 0;
+  return std::string(tmp);
+}
+
+/// return unsigned 16-bit value as string of 16 '1' and '0' characters (MSB first, so
+/// bit 0 will be last character in string, bit 15 will be first character.)
+/// @todo separate every 8 bits. 
+/// @todo generalize with others to any number of bits
+std::string ArModeRobotStatus::int16_as_bitstring(ArTypes::Byte2 n) 
+{
+  char tmp[17];
+  int bit;
+  int ch;
+  for(bit = 15, ch = 0; bit >= 0; bit--, ch++)
+    tmp[ch] = ((n>>bit)&1) ? '1' : '0';
+  tmp[16] = 0;
+  return std::string(tmp);
+}
+
+/// @todo separate every 8 bits. 
+/// @todo generalize with others to any number of bits
+std::string ArModeRobotStatus::int32_as_bitstring(ArTypes::Byte4 n)
+{
+  char tmp[33];
+  int bit;
+  int ch;
+  for(bit = 31, ch = 0; bit >= 0; bit--, ch++)
+    tmp[ch] = ((n>>bit)&1) ? '1' : '0';
+  tmp[32] = 0;
+  return std::string(tmp);
+}
+
+const char *ArModeRobotStatus::safetyStateName(int state)
+{
+  switch (state) {
+    case 0:
+      return "unknown/initial";
+    case 0x10:
+      return "failure";
+    case 0x20: 
+      return "warning";
+    case 0x40:
+      return "commissioned";
+    case 0x50:
+      return "decommissioned/disabled";
+  }
+  return "invalid/unknown";
+}
+
+bool ArModeRobotStatus::handleSafetyStatePacket(ArRobotPacket *p)
+{
+  if(p->getID() != 214) return false;
+  int state = p->bufToUByte();
+  int estop_state = p->bufToUByte();
+  int laser_state = p->bufToUByte();
+  ArLog::log(ArLog::Normal, "Safety system state: 0x%x, system0(estop)=0x%x, %s, system1(laser)=0x%x, %s\n", state, estop_state, safetyStateName(estop_state), laser_state, safetyStateName(laser_state));
+  return true;
+}
+
+bool ArModeRobotStatus::handleSafetyWarningPacket(ArRobotPacket *p)
+{
+  if(p->getID() != 217) return false;
+  ArLog::log(ArLog::Terse, "Safety system warning received!");
+  return false; // let other stuff also handle it
 }
 

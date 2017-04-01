@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -82,6 +83,8 @@ public:
   typedef short Byte2;
   /// Four signed bytes
   typedef int Byte4;
+  /// Eight signed bytes
+  typedef long long Byte8;
 
   /// A single unsigned byte
   typedef unsigned char UByte;
@@ -89,6 +92,8 @@ public:
   typedef unsigned short UByte2;
   /// Four unsigned bytes
   typedef unsigned int UByte4;
+  /// Eight unsigned bytes
+  typedef unsigned long long UByte8;
 };
 
 

@@ -1,44 +1,249 @@
+
+
+Aria 2.9.1
+October 14, 2016
+---------------------------
+
+This version contains all of the changes 
+listed for ARIA 2.9.0 and 2.8.x below, as well as the following:
+
+* Fixed serial port (COM port) names for Pioneer LX components on Windows
+* ArGPS will now work with more types of GPS receivers, even if they use
+  different NMEA message/sentence prefixes other than "GP..."
+* amigo-sh-tim3xx (aka amigo-sh-tim5xx) robot type and default parameters added to ARIA
+  Amigobot with TiM laser on Wibox.
+* Add missing RobotLengthFront and RobotLengthRear parameters for 
+  Seekur and Seekur Jr. (in internal defaults and seekur.p and seekurjr.p).
+  (This caused bad driving trajectories in ARNL e.g. turning away from path) 
+* Add identifiers for newer camera connection and separate arm logic power to
+  seekurPower control tool
+* Default port for RVision PTZ camera is now COM4 (/dev/ttyS3 on Linux)
+* RVision now works in ARIA demo.
+* Can now add ArRobot packet handler callbacks from Python (added typemap and
+  supporting code for ArRetFunctor1<bool, ArRobotPacket*>)
+* Added new "tim551", "tim561", and "tim571" laser types to support SICK TiM
+  lasers. Specify them in robot parameter files or with the -laserType command
+  line option to use.
+* Can use "tim510" laser type identifier as alias for "tim3xx".
+* In ARIA demo program, a few USB serial port options have been added to 
+  menu selection of PTZ camera ports.
+* ArNetworking includes new ArServerModeJogPosition. Remote clients can send
+  requests to this mode to move the robot in short relative increments
+  forward/back and rotate.  
+* Minor fixes to Visual Studio 2013 projects
+* Added ArCallbackList2 and ArCallbackList3 classes.
+* ArNetworking includes new ArClientRatioDrive, a class to make it easier to 
+  remotely drive robot by velocity requests. (Same as teleoperation tools in
+  MobileEyes)
+* ArNetworking now includes a consolidated list of remote requests with
+  packet field descriptions, as a page in the ArNetworking API Reference 
+  documentation.  (These requests and replies are used by ArNetworking clients
+  to communicate with servers including ARNL servers.)
+* Misc ArNetworking documentation and examples improvements, including new 
+  example program that shows how to get String Info Group data
+  aka "Custom Details" from server (ArServerInfoStrings). Corrected
+  documentation of ArServerInfoStrings "getStrings" request.
+* Enable HasRearBumps by default in Pioneer LX parameters (params/pioneer-lx.p
+  and internal defaults): The first three "User Bumpers" inputs trigger the same
+  bumper flags as the robot's built-in front bumpers; the second set of 
+  three User Bumps inputs trigger the Rear Bumps.
+* Includes fixes to LMS1xx and TiM interfaces that allow rotated laser
+  (backwards-facing) mounting to work.
+* Added function to Aria Python library to seach network for WiBox
+  wireless devices, and prompt user for connection, making Python
+  development a bit easier. Added more information to Python documentation,
+  including notes on how to use the Idle IDE on Windows and how to get
+  started using the Jupyter Notebook interactive Python workflow (formerly
+  known as iPython Notebook)
+* Fixed HasMoveCommand flag in default robot parameters for Pioneer LX 
+  that indicates how ArRobot should implement move(). (Set to false.)  LX 
+  currently does not have a working built-in MOVE command so discrete 
+  movement is implemented within ArRobot. 
+* On Windows, there is now partial support for Visual C++ 2015 (VC14)
+  in ARIA and ArNetworking.  Other libraies will get support in future
+  versions.
+* Added Visual Studio templates that can be copied into your user
+  directory (Visual Studio directories in My Documentes) and used to
+  create new projects already set up for ARIA and with example code.
+* Windows installer now sets up Python environment (by setting PATH environment
+  variable and permanently in Windows Registry, and by adding to PythonPath in 
+  Windows Registry, these are done in both the System and User scopes.)
+
+Aria 2.9.0
+November 10, 2014
+---------------------------
+
+This version contains all of the changes 
+listed for ARIA 2.8.0 and 2.8.1 below, as well as the following:
+
+Bug Fixes:
+* 'demo' and 'gpsRobotTaskExample' example programs now 
+  only print a warning on error connecting to laser, rather than
+  exiting. This allows them to be used on robots with lasers configured
+  in robot parameters (with LaserAutoConnect set to true), even
+  if there is no laser rangefinder actually connected.
+* Internal defaults for MTX (Pioneer LX) sonar are now configured 
+  correctly if pioneer-lx.p parameter file is not available or loaded.
+* Fixed checks for MTX/Lynx/Pioneer LX dock in ArBatteryMTX that could
+  cause applications to retain "docked" state if robot actually 
+  removed from dock.
+* Added good default values for Pioneer LX acceleration parameters
+* Bug fixes to Matlab interface
+* Removed declaration of undefined (and unneeded) function in 
+  ArConfigArg, which was preventing Python and Java wrappers from 
+  working.
+* Fixed ArNetworking ArServerModeRatioDrive timeout to cover missing
+  cases
+* Fixed ArNetworking ArServerMode mode-lock
+* Reset ArSocket timeout immediately after a successful connection
+  (in addition to creation and reading data)
+* Add missing RobotLengthFront and RobotLengthRear parameters for 
+  Seekur Jr. (in internal defaults and seekurjr.p)
+* Some additional diagnostics added to ArS3Laser
+* Fixes to SICK TiM laser support
+* Fixed disconnect-normally callbacks in ArRobot
+* Prevent ArNetworking from sending too-large packets. Followup
+  packets will be sent with rest of data.
+* Fixed names of Windows COM10 port and higher in ArUtil 
+  (ArUtil::COM10, ArUtil::COM11, etc.) to include \\.\ prefix that is
+  required for high COM ports on Windows.
+* Updated more examples (including Python examples) to correctly use
+  new ArRobotConnector instead of deprecated ArSimpleConnector.
+* Fixed bug in which ArRobotConnector would erroneously stop any JOYINFO
+  packets requested by ArRobotJoyHandler; ArRobotJoyHandler now requests
+  JOYINFO packets to stop when disconnected, destroyed, or ARIA program
+  exits.
+ 
+
+New Features and Other Changes:
+* The MTX-related classes (for Pioneer LX) added in ARIA 2.8 for Linux
+  have been updated to work on Windows, except for ArMTXIO, so ARIA
+  can now be used in Windows with the Pioneer LX.   ArMTXIO will be
+  included in ARIA 2.10.
+* Some additional parameter checks were added to ArSonarMTX
+* ArClientHandlerRobotUpdate added to ArNetworking
+* Matlab client interface added to ArNetworking
+* Matlab interface code is now included in the Aria package. See 
+  matlab and ArNetworking matlab subdirectories. Read the README files
+  for instructions.
+* Added ability to disable autofocus through ArPTZ interface; 
+  implemented in ArVCC4; added key to 'demo' camera mode to toggle 
+  autofocus.
+* Added new mode to 'demo' that displays and explains some diagnostic
+  flags and messages from the robot (especially MTX/Pioneer LX)
+* Visual C++ 2012 and 2013 solutions and projects were added.  Visual
+  C++ versions prior to 2010 are no longer supported. (If using Visual
+  C++ 2013, use the "Windows Desktop" variant.)  Python and Java
+  wrappers were built (and canbe rebuilt) using only Visual C++ 2012.
+* Python 2.7 is now used for the Python wrapper on Windows. Default
+  system Python versions are used on Debian 5 and Ubuntu 12.
+* Various minor additions to ARIA API, including:
+   * ArRobot::isStopped() which can be more reliable than checking
+     for velocity value exactly 0.
+   * ArRobot::isFrontBumperTriggered(), isRearBumperTriggered()
+* Items in ArConfig (ArConfigArg objects) can be omitted from saving
+  to files (serializable flag)
+* New ArTimeChecker class, which can help measure elapsed time through 
+  different stages or parts of a process or function.
+* The Python wrapper DLLs now end in .pyd file extension instead of 
+  .dll (this change should be transparent when importing AriaPy or 
+  ArNetworkingPy  wrapper Python modules, Python should load the new 
+  .pyd file the same as the old .dll)
+* Added getMaxTiltSpeed() and getMaxPanSpeed() method to ArPTZ interface.
+  Added setTiltSpeed() and setPanSpeed() methods as aliases for existing
+  tiltSlew() and panSlew() methods.
+
+Aria 2.8.1
+November 8, 2013
+---------------------------
+
+NOTE: MTX interface classes (for Pioneer LX) are not tested or 
+supported on Windows in this release (support will be added in Aria 2.9).
+
+This version includes the following bug fixes:
+
+* A bug was fixed in ArLaserLogger that caused a crash in creation 
+ (e.g. when starting a new map in ARNL or using sickLogger)
+* Loading of Pioneer LX sonar parameters from robot parameter file was
+  fixed.
+* The number of sonars and SonarUnit parameters for Pioneer LX have 
+  been updated in built-in defaults and in the pioneer-lx.p parameter 
+  file for MTX sonar module firmware version 7.
+* The remaining examples that used ArSimpleConnector have been updated
+  to use ArRobotConnector and ArLaserConnector or replaced by new examples
+* The primary laser for all types of robots now has its connect flag
+  (LaserAutoConnect) set to 'true' in robot parameter files and internal
+  defaults. This means that any program using ArLaserConnector::connectLasers()
+  will by default try to connect the primary laser, even if -connectLaser
+  was not given on the command line.  Some robot parameter files define 
+  additional, optional lasers (e.g. second LMS-100 on Seekur robots, URG
+  laser on PatrolBot). LaserAutoConnect remains 'false' for these secondary
+  lasers, but can be changed to 'true' if you have those optional additional
+  lasers. If you want a program to use ArLaserConnector.connectLasers()
+  and succeed even if the robot does not have  any laser rangefinders,
+  either allow the program to continue (with a warning, perhaps) even
+  after connectLasers() fails, or create a custom parameter file for
+  that robot that changes LaserAutoConnect to false for the primary laser.
+  (ARIA examples which require a laser, such as the laserConnect and 
+  lasers examples, exit with an error if ArLaserConnector::connectLasers()
+  fails, but examples which do not strictly require a laser, will usually
+  log a warning but continue.) This change allows most programs to connect
+  to typical laser rangefinder devices if present, exit if neccesary on
+  error, and also remains similar to prior ArSimpleConnector behavior,
+  but allowing the use of the LaserAutoConnect flag to adjust laser
+  connection via parameter files if desired as well.
+* ARIA now logs full path to the actual parameter file loaded after
+  connecting to the robot.
+* Fixed some compilation errors and warnings in examples
+* Fixed names of Windows COM10 port and higher in ArUtil (ArUtil::COM10,
+  ArUtil::COM11, etc.) to include \\.\ prefix that is required for high
+  COM ports on Windows.
+
 Aria 2.8.0
 August 22, 2013
 ---------------------------
 
-This release adds support for the Pioneer LX. The Pioneer LX is the first 
-of a new type of robots referred to as the MTX generation or type.  MTX is
-largely compatible with previous Pioneer type robots, with the exception of
-connections to sonar, battery, LCD, IO and some other components.  The 
-ARIA API is largely the same, remaining transparently compatible, but you may
-need to use some MTX-specific classes for certain MTX-specific fetaures, in
-particular general purpose IO via the ArMTXIO class.  See the MTX-specific
-example programs in the examples/ directory for examples of use of these
-features. A more detailed summary of classes added or changes made for MTX is
-below.
+NOTE: MTX interface classes (for Pioneer LX) are not yet tested or
+supported on Windows in this release.
 
-2.8.0 has been released for Linux only.  A release with Windows support is
-forthcoming.
+This release adds support for the Pioneer LX. The Pioneer LX is the 
+first of a new type of robots referred to as the MTX generation or type.
+MTX is largely compatible with previous Pioneer type robots, with the
+exception of connections to sonar, battery, LCD, IO and some other
+components.  The ARIA API is largely the same, remaining transparently
+compatible, but you may need to use some MTX-specific classes for
+certain MTX-specific fetaures, in particular general purpose IO via
+the ArMTXIO class.  See the MTX-specific example programs in the
+examples/ directory for examples of use of these features. A more
+detailed summary of classes added or changes made for MTX is below.
+
+2.8.0 has been released for Linux only.  A release with Windows 
+support is forthcoming.
 
 MTX LCD display implementation is incomplete in 2.8.0. An update will be
-released in the future with complete LCD support (with robot firmware upgrade
-if needed.)
+released in the future with complete LCD support (with robot firmware
+upgrade if needed.)
 
-Analog IO support is incomplete, this will also be added in the next update.
+Analog IO support is incomplete, this will also be added in the next
+update.
 
 Additional changes made in this release of ARIA include:
-  * Support for the SICK TiM300 laser rangefinder. Use the tim3xx laser type
-    identifier in robot configuration or command-line parameters.  (Implemented
-    internally as a variant in ArLMS1xx class)
+  * Support for the SICK TiM300 laser rangefinder. Use the tim3xx
+    laser type identifier in robot configuration or command-line 
+	parameters.  (Implemented internally as a variant in ArLMS1xx class)
   * ArRobot disables the robot motors explicitly before disconnecting on exit
-  * ArActionDeceleratingLimiter now has option to limit rotation as well as
-    translation
-  * ArActionLimiterRot added, which can be used to limit rotation separately
-    from other actions.
+  * ArActionDeceleratingLimiter now has option to limit rotation as well
+    as translation
+  * ArActionLimiterRot added, which can be used to limit rotation 
+    separately from other actions.
   * ArActionTriangleDriveTo improved
-  * List parameter type added (and other API changes) to ArConfig, though not 
-    generally used in ARIA or ARNL yet.
-  * ArRobotJoyHandler can now be connected to ArConfig for user control of
-    some parameters.
+  * List parameter type added (and other API changes) to ArConfig,
+    though not generally used in ARIA or ARNL yet.
+  * ArRobotJoyHandler can now be connected to ArConfig for user control
+    of some parameters.
   * SICK S300 support has been improved
-  * RS-422 support in ArSerialConnection now available in Windows as well as
-    Linux
+  * RS-422 support in ArSerialConnection now available in Windows as 
+    well as Linux
   * ArSonarAutoDisabler can now be temporarily supressed with a method or 
     functor call.
   * ArSoundsQueue can call callbacks before and after each item is played.
@@ -49,44 +254,46 @@ Additional changes made in this release of ARIA include:
     ArActionDesired
   * ArArgumentBuilder handling of spaces and quotes can be customized a bit
   * State of charge, lateral velocity, and battery data added to ArDataLogger.
-  * ArLog::logBacktrace() added for Linux, which calls Linux backtrace() system
-    call.
+  * ArLog::logBacktrace() added for Linux, which calls Linux backtrace()
+    system call.
   * Diagnostic ArMutex lock timing can be used on Windows now.
   * ArFunctor classes added which can pass five arguments
    
 ArNetworking changes include:
   * Number of connected clients can be limited in ArServerBase
-  * ArServerHandlerMapping can call callbacks before and after mapping is done,
-    and can also be given additional ArLaser interfaces to include in the scan
-    log.
-  * ArServerMode objects have a new "extended status" field which can hold 
-    details in addition to mode name and status field.  This is also provided
-    to clients for the active server mode by ArServerInfoRobot in addition to
-    existing mode name and status. Extended status may contain multiple lines
-    (normal status is expected to not contain any newlines)
+  * ArServerHandlerMapping can call callbacks before and after mapping
+    is done, and can also be given additional ArLaser interfaces to 
+	include in the scan log.
+  * ArServerMode objects have a new "extended status" field which can
+    hold details in addition to mode name and status field.  This is 
+	also provided to clients for the active server mode by ArServerInfoRobot
+	in addition to existing mode name and status. Extended status may
+	contain multiple lines (normal status is expected to not contain 
+	any newlines).  MobileEyes 2.2 does not display extended status, this
+	will be supported in a future MobileEyes release.
 
 Details of MTX (Pioneer LX) additions:
   * ArMTXIO class added. Communicates with "mtx" operating system driver to
     interface with MTX digital general purpose IO and power control.
-  * ArSonarConnector and ArSonarMTX classes.  By default the connection to MTX sonar
-    is handled automatically by ArRobotConnector, no changes to existing
-    software need to be made. The existing ArSonarDevice and ArRobot API can be 
-    used with MTX sonar.
-  * ArBatteryConnector and ArBatteryMTX classes. By default, the connection to MTX 
-    battery is handled automatically by ArRobotConnector, no changes to existing
-    software needs to be made. The state of charge and other information is
-    available in the existing ArRobot API.  Extra diagnostic information about
-    the batter(ies) is provided in ArBatteryMTX objects which can be obtained 
-    from ArRobot.
-  * Default Pioneer LX parameters have been built in to ARIA  for "pioneer-lx"
-    type robots and a pioneer-lx.p 
+  * ArSonarConnector and ArSonarMTX classes.  By default the connection
+    to MTX sonar is handled automatically by ArRobotConnector, no 
+	changes to existing software need to be made. The existing
+	ArSonarDevice and ArRobot API can be used with MTX sonar.
+  * ArBatteryConnector and ArBatteryMTX classes. By default, the 
+    connection to MTX battery is handled automatically by ArRobotConnector, 
+	no changes to existing software needs to be made. The state of charge
+	and other information is available in the existing ArRobot API. 
+	Extra diagnostic information about the batter(ies) is provided in
+	ArBatteryMTX objects which can be obtained from ArRobot.
+  * Default Pioneer LX parameters have been built in to ARIA  for 
+    "pioneer-lx" type robots and a pioneer-lx.p 
     parameter file is included in the params directory.  Early revisions of 
     the MTX core report a robot subtype of "marc_devel" which is assumed to be
     an LX.  
   * A Pioneer LX model has been added to MobileSim  0.7.3
   * mtxIO, mtxPowerControl and mtxWheelLights examples added. Other examples
-    including demo have been updated to use ArRobotConnector and other current
-    classes for MTX/LX compatability.  
+    including demo have been updated to use ArRobotConnector and other 
+	current classes for MTX/LX compatability.  
   * New command identifiers added to ArCommands
   
   

@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -25,17 +26,23 @@ Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 */
 #include "Aria.h"
 
-int main(void)
+int main(int argc, char **argv)
 {
   int ret;
   char bufWrite[1024];
   char bufRead[1024];
-  bool verbose = false;
+  bool verbose = true;
   int i, n;
+
+  const char *port = ArUtil::COM1;
+  if (argc > 0)
+	  port = argv[1];
+
+  /*
   for (i = 0; i < 1024; i++)
     bufWrite[i] = 0x66;
+  */
 
-  srand(time(NULL));
   
   int bytes1 = 0;
   int bytes2 = 0;
@@ -44,11 +51,12 @@ int main(void)
   ArTime lastPrint;
 
   ArSerialConnection ser1;
-  ser1.setPort(ArUtil::COM1);
+  ser1.setPort(port);
   //ser1.setBaud(115200);
+  printf("opening %s...\n", port);
   if (!ser1.openSimple())
   {
-    printf("Exiting since open failed\n");
+    printf("open failed\n");
     exit(0);
   }
   printf("Port opened\n");
@@ -68,7 +76,7 @@ int main(void)
 */
     ////ser1.write("a", 1);
     if ((ret = ser1.read(bufRead, sizeof(bufRead))) < 0)
-      printf("Failed2 read\n");
+      printf("Failed read\n");
     else if (ret > 0)
     {
       bufRead[ret] = '\0';

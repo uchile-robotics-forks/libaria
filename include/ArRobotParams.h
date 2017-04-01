@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -57,15 +58,18 @@ public:
 		imageHeight(-1),
 		deviceIndex(-1),
 		deviceName("none"),
-		channel(1),
+		channel(-1),
 		analogSignalFormat(""),
-		address("192.168.0.90"),
+		address("none"),
 		tcpPort(80),
 		tcpPortSet(false),
 		inverted(false),
 		invertedSet(false)
 	{}
-	/// Copy values of any parameters in @a other into @a this, if given in @a other
+	/// Copy values of any parameters from @a other into @a this, if the param in
+	/// @a other is not a missing/null/empty value (exactly how
+	///"empty/null/missing/default" is represented depends on the specific
+	///parameter, see parameter documentation and definition of merge() method in ArRobotParams.cpp)
 	AREXPORT void merge(const ArVideoParams& other);
 	void setType(const std::string& t) { type = t; }
 	void setConnect(bool c) { connect = c; connectSet = true; }
@@ -100,7 +104,7 @@ public:
 		connectSet(false),
 		serialPort("none"),
 		robotAuxPort(-1),
-		address("192.168.0.90"),
+		address("none"),
 		tcpPort(80),
 		tcpPortSet(false),
 		inverted(false),
@@ -252,7 +256,6 @@ public:
 
   /// Returns the number of sonar
   int getNumSonar(void) const { return myNumSonar; }
-
 
   /// Returns if the robot has a laser (according to param file)
   /**
@@ -870,6 +873,7 @@ public:
   /// Gets what port the compass is on
   const char *getCompassPort() const { return myCompassPort; }
 
+#ifndef SWIG
   /// For internal use only, gets a pointer to the dist conv factor value
   double *internalGetDistConvFactorPointer(void) { return &myDistConvFactor; }
   
@@ -888,6 +892,7 @@ public:
   /// Internal call that adds to this config the same way it's always
   /// been done (this is only exposed for some internal testing)
   void internalAddToConfigDefault(void);
+#endif
 
   /// return a const reference to the video device parameters
   const std::vector<ArVideoParams>& getVideoParams() const { return myVideoParams; }
@@ -1131,6 +1136,7 @@ protected:
 			mySonarMTXBoardPortType[0] = '\0';
 			mySonarMTXBoardPort[0] = '\0';
 			mySonarMTXBoardBaud = 0;
+      mySonarMTXBoardBaudString[0] = '\0';
 			mySonarMTXBoardAutoConn = false;
 			myNumSonarTransducers = 0;
 			mySonarDelay = 2;
@@ -1149,6 +1155,7 @@ protected:
     char mySonarMTXBoardPortType[256];
     char mySonarMTXBoardPort[256];
     int mySonarMTXBoardBaud;
+    char mySonarMTXBoardBaudString[256];
     bool mySonarMTXBoardAutoConn;
     int myNumSonarTransducers;
     int mySonarBaud;
@@ -1159,7 +1166,7 @@ protected:
 		*/
     int mySonarDetectionThreshold;
     int mySonarMaxRange;
-	bool mySonarUseForAutonomousDriving;
+		bool mySonarUseForAutonomousDriving;
     char mySonarMTXBoardPowerOutput[256];
   };
   std::map<int, SonarMTXBoardData *> mySonarMTXBoards;
@@ -1216,9 +1223,10 @@ protected:
 		*/
     SONAR_DETECTION_THRESHOLD,
     SONAR_MAX_RANGE,
-	SONAR_USE_FOR_AUTONOMOUS_DRIVING
+		SONAR_USE_FOR_AUTONOMOUS_DRIVING
   };
-  AREXPORT void internalSetSonar(int num, int x, int y, int th);
+  AREXPORT void internalSetSonar(int num, int x, int y, int th, 
+    int mtxboard = 0, int mtxunit = 0, int mtxgain = 0, int mtxthresh = 0, int mtxmax = 0);
   AREXPORT bool parseSonarUnit(ArArgumentBuilder *builder);
   AREXPORT bool parseMTXSonarUnit(ArArgumentBuilder *builder);
 	AREXPORT const std::list<ArArgumentBuilder *> *getSonarUnits(void);

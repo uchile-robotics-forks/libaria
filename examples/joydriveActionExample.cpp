@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -110,14 +111,32 @@ ArActionDesired *JoydriveAction::fire(ArActionDesired currentDesired)
 
 int main(int argc, char **argv)
 {
-  ArRobot robot;
   Aria::init();
-  ArSimpleConnector connector(&argc, argv);
-  if (!connector.parseArgs() || argc > 1)
+  ArArgumentParser parser(&argc, argv);
+  parser.loadDefaultArguments();
+  ArRobot robot;
+
+  // Connect to the robot, get some initial data from it such as type and name,
+  // and then load parameter files for this robot.
+  ArRobotConnector robotConnector(&parser, &robot);
+  if(!robotConnector.connectRobot())
   {
-    connector.logOptions();
-    return 1;
+    ArLog::log(ArLog::Terse, "joydriveActionExample: Could not connect to the robot.");
+    if(parser.checkHelpAndWarnUnparsed())
+    {
+        // -help not given
+        Aria::logOptions();
+        Aria::exit(1);
+    }
   }
+
+  if (!Aria::parseArgs() || !parser.checkHelpAndWarnUnparsed())
+  {
+    Aria::logOptions();
+    Aria::exit(1);
+  }
+
+  ArLog::log(ArLog::Normal, "joydriveActionExample: Connected to robot.");
 
   // Instance of the JoydriveAction class defined above
   JoydriveAction jdAct;
@@ -130,13 +149,6 @@ int main(int argc, char **argv)
     return 1;
   }
   
-  // Connect to the robot
-  if (!connector.connectRobot(&robot))
-  {
-    printf("Could not connect to robot... exiting\n");
-    return 2;
-  }
-
 
   // disable sonar, enable motors, disable amigobot sound
   robot.comInt(ArCommands::SONAR, 0);
@@ -145,6 +157,7 @@ int main(int argc, char **argv)
 
   // add the action
   robot.addAction(&jdAct, 100);
+
   // run the robot, true so it'll exit if we lose connection
   robot.run(true);
   

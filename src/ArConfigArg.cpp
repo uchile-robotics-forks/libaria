@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -29,6 +30,7 @@ Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 #include "ArLog.h"
 #include "ArArgumentBuilder.h"
 #include "ArFileParser.h"
+#include "ArSocket.h"
 
 //#define ARDEBUG_CONFIGARG
 
@@ -43,18 +45,18 @@ Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 //
 int ArConfigArg::ourIndentSpaceCount = 3;
 
-const char *ArConfigArg::LIST_BEGIN_TAG  = "_beginList";
-const char *ArConfigArg::LIST_END_TAG    = "_endList";
+AREXPORT const char *ArConfigArg::LIST_BEGIN_TAG  = "_beginList";
+AREXPORT const char *ArConfigArg::LIST_END_TAG    = "_endList";
 
-const char *ArConfigArg::NULL_TAG = "NULL";
-const char *ArConfigArg::NEW_RESOURCE_TAG = "xltrNew";
-
-
-std::map<std::string, ArConfigArg::Type> *ArConfigArg::ourTextToTypeMap = NULL;
-std::map<std::string, ArConfigArg::RestartLevel> *ArConfigArg::ourTextToRestartLevelMap = NULL;
+AREXPORT const char *ArConfigArg::NULL_TAG = "NULL";
+AREXPORT const char *ArConfigArg::NEW_RESOURCE_TAG = "xltrNew";
 
 
-const char *ArConfigArg::toString(Type t)
+std::map<std::string, ArConfigArg::Type, ArStrCaseCmpOp> *ArConfigArg::ourTextToTypeMap = NULL;
+std::map<std::string, ArConfigArg::RestartLevel, ArStrCaseCmpOp> *ArConfigArg::ourTextToRestartLevelMap = NULL;
+
+
+AREXPORT const char *ArConfigArg::toString(Type t)
 {
    switch (t) {
    case INVALID:
@@ -115,7 +117,7 @@ ArConfigArg::Type ArConfigArg::typeFromString(const char *text)
     return INVALID;
   }
   if (ourTextToTypeMap == NULL) {
-    ourTextToTypeMap = new std::map<std::string, Type>();
+    ourTextToTypeMap = new std::map<std::string, Type, ArStrCaseCmpOp>();
     (*ourTextToTypeMap)["INVALID"] = INVALID;
     (*ourTextToTypeMap)["INT"] = INT;
     (*ourTextToTypeMap)["DOUBLE"] = DOUBLE;
@@ -131,7 +133,7 @@ ArConfigArg::Type ArConfigArg::typeFromString(const char *text)
 
   }
 
-  std::map<std::string, Type>::iterator iter = ourTextToTypeMap->find(text);
+  std::map<std::string, Type, ArStrCaseCmpOp>::iterator iter = ourTextToTypeMap->find(text);
   if (iter != ourTextToTypeMap->end()) {
     return iter->second;
   }
@@ -140,20 +142,20 @@ ArConfigArg::Type ArConfigArg::typeFromString(const char *text)
 } // end method typeFromString
 
 
-ArConfigArg::RestartLevel ArConfigArg::restartLevelFromString(const char *text)
+AREXPORT ArConfigArg::RestartLevel ArConfigArg::restartLevelFromString(const char *text)
 {
   if (ArUtil::isStrEmpty(text)) {
     return NO_RESTART;
   }
   if (ourTextToRestartLevelMap == NULL) {
-    ourTextToRestartLevelMap = new std::map<std::string, RestartLevel>();
+    ourTextToRestartLevelMap = new std::map<std::string, RestartLevel, ArStrCaseCmpOp>();
     (*ourTextToRestartLevelMap)["NO_RESTART"] = NO_RESTART;
     (*ourTextToRestartLevelMap)["RESTART_CLIENT"] = RESTART_CLIENT;
     (*ourTextToRestartLevelMap)["RESTART_IO"] = RESTART_IO;
     (*ourTextToRestartLevelMap)["RESTART_SOFTWARE"] = RESTART_SOFTWARE;
     (*ourTextToRestartLevelMap)["RESTART_HARDWARE"] = RESTART_HARDWARE;
   }
-  std::map<std::string, RestartLevel>::iterator iter = ourTextToRestartLevelMap->find(text);
+  std::map<std::string, RestartLevel, ArStrCaseCmpOp>::iterator iter = ourTextToRestartLevelMap->find(text);
   if (iter != ourTextToRestartLevelMap->end()) {
     return iter->second;
   }
@@ -758,10 +760,11 @@ void ArConfigArg::copy(const ArConfigArg &arg,
   myIgnoreBounds = arg.myIgnoreBounds;
   myDisplayHint = arg.myDisplayHint;
   myRestartLevel = arg.myRestartLevel;
-  mySupressChanges = arg.mySupressChanges;
 
   myValueSet = arg.myValueSet;
+  mySuppressChanges = arg.mySuppressChanges;
   myIsTranslated = arg.myIsTranslated;
+  myIsSerializable = arg.myIsSerializable;
 
   // Intentionally not copying the parent (at least currently)
 
@@ -814,6 +817,38 @@ AREXPORT bool ArConfigArg::copyTranslation(const ArConfigArg &arg)
   return true;
 
 } // end method copyTranslation
+  
+
+AREXPORT bool ArConfigArg::promoteList(const ArConfigArg &arg)
+{
+  if ((getType() != LIST_HOLDER) || (arg.getType() != LIST)) {
+    ArLog::log(ArLog::Normal,
+               "ArConfigArg::promoteList() incorrect type for %s",
+               arg.getName());
+    return false;
+  }
+  myType = arg.myType;
+  myName = arg.myName;
+  myDescription = arg.myDescription;
+  myExtraExplanation = arg.myExtraExplanation;
+  myDisplayName = arg.myDisplayName;
+  
+  ///ArConfigArgData myData;
+
+  myConfigPriority = arg.myConfigPriority;
+  myDisplayHint = arg.myDisplayHint;
+  myRestartLevel = arg.myRestartLevel;
+  //ArConfigArg *myParentArg;
+
+  myOwnPointedTo = arg.myOwnPointedTo;
+  myValueSet = arg.myValueSet;
+  myIgnoreBounds = arg.myIgnoreBounds;
+  myIsTranslated = arg.myIsTranslated;
+  mySuppressChanges = arg.mySuppressChanges;
+  myIsSerializable = arg.myIsSerializable;   
+
+  return true;
+}
 
 
 AREXPORT ArConfigArg::~ArConfigArg()
@@ -992,7 +1027,6 @@ void ArConfigArg::clear(bool initial,
   myIgnoreBounds = false;
   myDisplayHint = "";
   myRestartLevel = NO_RESTART;
-  mySupressChanges = false;
 
   myValueSet = false;
 
@@ -1000,6 +1034,8 @@ void ArConfigArg::clear(bool initial,
   
   myOwnPointedTo = false;
   myIsTranslated = false;
+  mySuppressChanges = false;
+  myIsSerializable = true;
 
 } // end method clear
 
@@ -1007,8 +1043,8 @@ void ArConfigArg::clear(bool initial,
 
 AREXPORT void ArConfigArg::replaceSpacesInName(void)
 {
-  int i;
-  int len = myName.size();
+  size_t i;
+  size_t len = myName.size();
   for (i = 0; i < len; i++)
   {
     if (isspace(myName[i]))
@@ -1395,7 +1431,8 @@ AREXPORT const char *ArConfigArg::getString(bool *ok) const
 {
   if (ok != NULL) {
     *ok = ((myType == STRING) || 
-           (myType == STRING_HOLDER));
+           (myType == STRING_HOLDER) ||
+           (myType == CPPSTRING));
   }
 
   if ((myType == STRING) || (myType == STRING_HOLDER)) {
@@ -1411,6 +1448,8 @@ AREXPORT const char *ArConfigArg::getString(bool *ok) const
     }
     else if (myData.myStringData.myStringPointer != NULL)
       return myData.myStringData.myStringPointer;
+  } else if(myType == CPPSTRING) {
+    return getCppString().c_str();
   }
 
   // KMC 7/9/12 Are we sure we want to return NULL and not ""?
@@ -1458,7 +1497,7 @@ AREXPORT bool ArConfigArg::setString(const char *str, char *errorBuffer,
   {
     ArLog::log(ArLog::Normal, "ArConfigArg of %s: setString called with argument %d long, when max length is %d.", getName(), len, myData.myStringData.myMaxStrLen);
     if (errorBuffer != NULL)
-      snprintf(errorBuffer, errorBufferLen, "%s string is %d long when max length is %d.", getName(), len, myData.myStringData.myMaxStrLen);
+      snprintf(errorBuffer, errorBufferLen, "%s string is %lu long when max length is %lu.", getName(), len, myData.myStringData.myMaxStrLen);
     return false;
   }
   if (!doNotSet)
@@ -1576,14 +1615,88 @@ AREXPORT bool ArConfigArg::addArg(const ArConfigArg &arg)
     return false;
   }
 
+  ArConfigArg newChildArg(arg);
+
+  ArConfigArg *existingChildArg = NULL;
+  if (!ArUtil::isStrEmpty(arg.getName())) {
+    existingChildArg = findArg(arg.getName());
+  }
+
   // If the child has a name (i.e. is not a separator), then it must be unique.
-  if ((!ArUtil::isStrEmpty(arg.getName())) &&
-      (findArg(arg.getName()) != NULL)) {
-    ArLog::log(ArLog::Normal,
-               "ArConfigArg::addArg() child %s not added to %s, duplicate exists",
-               arg.getName(),
-               getName());
-    return false;
+  if (existingChildArg != NULL) {
+    
+    if (!existingChildArg->isPlaceholder() && existingChildArg->isSerializable()) {
+      ArLog::log(ArLog::Normal,
+                 "ArConfigArg::addArg() child %s not added to %s, duplicate exists",
+                 arg.getName(),
+                 getName());
+      return false;
+    }
+    else if (existingChildArg->getType() == LIST_HOLDER) {
+      
+      if (newChildArg.getArgCount() == 0) {
+
+        IFDEBUG(ArLog::log(ArLog::Normal,
+                           "ArConfigArg::addArg() child %s promoted to list in %s",
+                           arg.getName(),
+                           getName()));
+        existingChildArg->promoteList(arg);
+
+        // This is slow and perhaps silly, but trying to eliminate argument 
+        // ordering issues.
+        newChildArg = *existingChildArg;
+
+        if (!removeArg(*existingChildArg)) {
+          ArLog::log(ArLog::Normal,
+                     "ArConfigArg::addArg() error removing existing list %s from %s",
+                      existingChildArg->getName(),
+                      getName());
+        }
+
+      }
+    }
+    else if (existingChildArg->getType() == STRING_HOLDER) {
+      // KMC Replace the existing child arg with the new arg, but keep its value.
+      ArArgumentBuilder holderBuilder;
+      holderBuilder.add(existingChildArg->getString());
+
+      //ArConfigArg newChildArg(arg);
+
+      bool isParseSuccessful = newChildArg.parseArgument(&holderBuilder, 
+				                                                 NULL,
+                                                         0); 
+
+      if (isParseSuccessful) {  
+
+        if (!removeArg(*existingChildArg)) {
+          ArLog::log(ArLog::Normal,
+                     "ArConfigArg::addArg() error removing child %s from %s",
+                     newChildArg.getName(),
+                     getName());
+        }
+      }
+      else {
+        ArLog::log(ArLog::Normal,
+                   "ArConfigArg::addArg() child %s not added to %s, error parsing '%s'",
+                    arg.getName(),
+                    getName(),
+                    existingChildArg->getString());
+        return false;
+      } 
+    }
+    else if (!existingChildArg->isSerializable()) {
+
+      // Well, the idea here is that we should allow a non-serializable
+      // parameter to simply be overwritten.  We won't be reading any
+      // updated values from the configuration file.
+
+      bool isValueSet = existingChildArg->setValue(newChildArg);
+      ArLog::log(ArLog::Normal,
+                 "ArConfigArg::addArg() child %s not serializable, setValue returns %i",
+                 existingChildArg->getName(),
+                 isValueSet);
+      return isValueSet;
+    }
   }
 
   // If the member list has not yet been allocated, then create it.
@@ -1600,13 +1713,54 @@ AREXPORT bool ArConfigArg::addArg(const ArConfigArg &arg)
 
   } // end if child list not yet created
 
-  myData.myListData.myChildArgList->push_back(arg);
+
+  IFDEBUG(ArLog::log(ArLog::Normal,
+                     "ArConfigArg::addArg() adding %s to %s",
+                      newChildArg.getName(),
+                      getName()));
+
+  myData.myListData.myChildArgList->push_back(newChildArg);
   // Modify the parent of the arg that has actually been stored.
   myData.myListData.myChildArgList->back().setParent(this);
 
   return true;
 
 } // end method addArg
+  
+
+AREXPORT bool ArConfigArg::removeArg(const ArConfigArg  &arg)
+{
+  // Children can only be added to LIST or LIST_HOLDER type parameters
+  if (!isListType()) {
+
+    ArLog::log(ArLog::Normal,
+               "ArConfigArg::removeArg() child %s not removed from %s (type %s), type must be %s or %s",
+               arg.getName(),
+               getName(),
+               toString(getType()),
+               toString(LIST),
+               toString(LIST_HOLDER));
+    return false;
+  }
+
+  if (ArUtil::isStrEmpty(arg.getName())) {
+    ArLog::log(ArLog::Normal,
+               "ArConfigArg::removeArg() child not removed from %s, empty name",
+               getName());
+    return false;
+  }
+  
+  for (std::list<ArConfigArg>::iterator iter = myData.myListData.myChildArgList->begin();
+       iter !=myData.myListData.myChildArgList->end(); 
+       iter++) {
+    if (ArUtil::strcasecmp((*iter).getName(), arg.getName()) == 0) {
+      myData.myListData.myChildArgList->erase(iter);
+      return true;
+    }
+  }
+
+  return false; // Not found
+}
 
 
 /**
@@ -1635,6 +1789,28 @@ AREXPORT size_t ArConfigArg::getArgCount() const
   return myData.myListData.myChildArgList->size();
 
 } // end method getArgCount
+
+
+AREXPORT size_t ArConfigArg::getDescendantArgCount() const
+{
+  // Children can only be added to LIST type parameters
+  if ((myType != LIST) ||
+      (myData.myListData.myChildArgList == NULL)) {
+    return 0;
+  }
+  int count = 0;
+  for (std::list<ArConfigArg>::const_iterator iter = myData.myListData.myChildArgList->begin();
+       iter != myData.myListData.myChildArgList->end();
+       iter++) {
+    // The child counts as a descendent
+    count++;
+    // And so do the child's descendents
+    count += (*iter).getDescendantArgCount();
+  } // end for each arg
+
+  return count;
+
+} // end method getDescendantArgCount
 
 
 /**
@@ -1803,6 +1979,44 @@ AREXPORT ArConfigArg *ArConfigArg::findArg(const char *childParamName)
 } // end method findArg
 
 
+AREXPORT bool ArConfigArg::getAncestorList
+                            (std::list<ArConfigArg*> *ancestorListOut) 
+{
+ 
+  if (getParentArg() == NULL) {
+    return false;
+  }
+  if (ancestorListOut == NULL) {
+    return true; // parent arg, but no work to do
+  }
+  ancestorListOut->push_front(this);
+
+  ArConfigArg *parentParam = getParentArg();
+
+  ancestorListOut->push_front(parentParam);
+
+  while (parentParam->getParentArg() != NULL) {
+    ancestorListOut->push_front(parentParam->getParentArg());
+    parentParam = parentParam->getParentArg();
+  } 
+  return true;
+
+} // end method getAncestorArgs
+
+
+AREXPORT const ArConfigArg *ArConfigArg::getTopLevelArg() const
+{
+  ArConfigArg *parentArg = getParentArg();
+  if (parentArg == NULL) {
+    return this;
+  }
+  while (parentArg->getParentArg() != NULL) {
+    parentArg = parentArg->getParentArg();
+  }
+  return parentArg;
+
+}
+
   
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // Methods for FUNCTOR Type 
@@ -1900,6 +2114,9 @@ AREXPORT std::list<std::string> ArConfigArg::splitParentPathName(const char *par
 
 } // end method splitParentPathName
 
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+// File Parsing
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 /**
  * For normal args, this method simply adds the parserCB handler for the keyword
@@ -2030,14 +2247,15 @@ AREXPORT bool ArConfigArg::parseArgument(
       if (ok) {
         ok = setInt(valInt, errorBuffer, errorBufferLen);
 
-	if (origInt != getInt() && changed != NULL && !mySupressChanges)
-	{
-	  if (printing)
-	    ArLog::log(ArLog::Normal, "%sParameter %s (int) changed from %d to %d",
-		       logPrefix, getName(), origInt, getInt());
+        // KMC 8/5/13 Think that these checks should be in the "if ok" block.
+  	    if (origInt != getInt() && changed != NULL && !mySuppressChanges)
+        {
+          if (printing)
+            ArLog::log(ArLog::Normal, "%sParameter %s (int) changed from %d to %d",
+                 logPrefix, getName(), origInt, getInt());
 
-	  *changed = true;
-	}
+          *changed = true;
+        }
 
         if (ok) {
           IFDEBUG(ArLog::log(ArLog::Verbose, 
@@ -2070,15 +2288,15 @@ AREXPORT bool ArConfigArg::parseArgument(
       if (ok) {
         ok = setDouble(valDouble, errorBuffer, errorBufferLen);
 
-	if (fabs(origDouble-getDouble()) > ArMath::epsilon() && 
-	    changed != NULL && !mySupressChanges)
-	{
-	  if (printing)
-	    ArLog::log(ArLog::Normal, "%sParameter %s (double) changed from %g to %g",
-		       logPrefix, getName(), origDouble, getDouble());
+        if (fabs(origDouble-getDouble()) > ArMath::epsilon() && 
+            changed != NULL && !mySuppressChanges)
+        {
+          if (printing)
+            ArLog::log(ArLog::Normal, "%sParameter %s (double) changed from %g to %g",
+                 logPrefix, getName(), origDouble, getDouble());
 
-	  *changed = true;
-	}
+          *changed = true;
+        }
 
         if (ok) {
           IFDEBUG(ArLog::log(ArLog::Verbose, 
@@ -2114,14 +2332,14 @@ AREXPORT bool ArConfigArg::parseArgument(
       if (ok) {
         ok = setBool(valBool, errorBuffer, errorBufferLen);
 
-	if (origBool != getBool() && changed != NULL && !mySupressChanges)
-	{
-	  if (printing)
-	    ArLog::log(ArLog::Normal, "%sParameter %s (bool) changed from %s to %s",
-		       logPrefix, getName(), 
-		       ArUtil::convertBool(origBool), ArUtil::convertBool(getBool()));
-	  *changed = true;
-	}
+        if (origBool != getBool() && changed != NULL && !mySuppressChanges)
+        {
+          if (printing)
+            ArLog::log(ArLog::Normal, "%sParameter %s (bool) changed from %s to %s",
+                 logPrefix, getName(), 
+                 ArUtil::convertBool(origBool), ArUtil::convertBool(getBool()));
+          *changed = true;
+        }
 
         if (ok) {
           IFDEBUG(ArLog::log(ArLog::Verbose, 
@@ -2156,12 +2374,12 @@ AREXPORT bool ArConfigArg::parseArgument(
 
       if (ArUtil::strcmp(origString, getString()) != 0 && changed != NULL)
       {
-	if (printing)
-	  ArLog::log(ArLog::Normal, "%sParameter %s (string) changed from '%s' to '%s'",
-		     logPrefix, getName(), 
-		     origString.c_str(), getString());
-	  
-	*changed = true;
+        if (printing)
+          ArLog::log(ArLog::Normal, "%sParameter %s (string) changed from '%s' to '%s'",
+                     logPrefix, getName(), 
+                     origString.c_str(), getString());
+      
+        *changed = true;
       }
 	
 
@@ -2224,10 +2442,10 @@ AREXPORT bool ArConfigArg::parseArgument(
       // assume that it's changed 
       if (changed != NULL)
       {
-	*changed = true;
-	ArLog::log(ArLog::Verbose, 
-		   "%sAssuming arg '%s' changed because it's a functor ArConfigArg",
-		   logPrefix, getName());
+        *changed = true;
+        ArLog::log(ArLog::Verbose, 
+             "%sAssuming arg '%s' changed because it's a functor ArConfigArg",
+             logPrefix, getName());
       }
       
       if (ok) {
@@ -2254,6 +2472,36 @@ AREXPORT bool ArConfigArg::parseArgument(
         }
       }
     }
+    break;
+
+  case CPPSTRING:
+    {
+      std::string origString = getCppString();
+      ok = setCppString(arg->getFullString());
+      if(origString != getCppString() && changed != NULL)
+      {
+        if(printing)  
+            ArLog::log(ArLog::Normal, "%sParameter %s (cppstring) changed from '%s' to '%s'",
+                       logPrefix, getName(), 
+                       origString.c_str(), getCppString().c_str());
+            *changed = true;
+      }
+      if (ok) {
+        IFDEBUG(ArLog::log(ArLog::Verbose, 
+                           "%sSet parameter string '%s' to '%s'",
+                           logPrefix,
+                           getName(), getString()));
+      }
+      else { // error setting string  
+        ArLog::log(ArLog::Verbose, 
+                   "%sCould not set cppstring parameter '%s' to '%s'",
+                   logPrefix,
+                   getName(), getCppString().c_str());
+        if (errorBuffer != NULL)
+          snprintf(errorBuffer, errorBufferLen, 
+                   "%s could not be set to '%s'.", getName(), arg->getFullString());
+      }
+    } 
     break;
 
   default:
@@ -2308,6 +2556,12 @@ AREXPORT bool ArConfigArg::writeArguments(FILE *file,
     ArLog::log(ArLog::Normal, 
                "ArConfigArg::writeArguments() invalid input");
     return false;
+  }
+  if (!isSerializable()) {
+    ArLog::log(ArLog::Normal,
+               "ArConfigArg::writeArguments() skipping non-serializable parameter %s",
+               getName());
+    return true; // no error occurred     
   }
 
   lineBuf[0] = '\0';
@@ -2614,6 +2868,622 @@ AREXPORT bool ArConfigArg::writeArguments(FILE *file,
 
 } // end method writeArguments
 
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+// Sockets
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+      
+
+bool ArConfigArg::isNone(const char *argText) 
+{
+  if (ArUtil::isStrEmpty(argText)) {
+    return true;
+  }
+  else if (ArUtil::strcasecmp(argText, "None") == 0) {
+    return true;
+  }
+  return false;
+
+} // end method isNone
+
+AREXPORT bool ArConfigArg::parseSocket(const ArArgumentBuilder &args,
+                                       char *errorBuffer,
+                                       size_t errorBufferLen)
+{
+
+  ArConfigArg configArg;
+  bool ok = true;
+
+  // This is a redundant check. The ARCL command handler should have verified the count
+  // before calling this method and will display a better error message.
+  if (args.getArgc() <=  SOCKET_INDEX_OF_TYPE) {
+    if ((errorBuffer != NULL) && (errorBufferLen > 0)) {
+      snprintf(errorBuffer, errorBufferLen,
+               "Insufficient arguments");
+    }
+    return false;
+
+  } // end if too few args
+ 
+  std::string name = args.getArg(SOCKET_INDEX_OF_ARG_NAME);
+
+  if (name.empty())
+  {
+    if ((errorBuffer != NULL) && (errorBufferLen > 0)) {
+      snprintf(errorBuffer, errorBufferLen,
+               "Syntax: <name> was empty, it must have a value.");
+    }
+    return false;
+
+  } // end if name empty
+
+
+  std::string description = args.getArg(SOCKET_INDEX_OF_DESCRIPTION);
+  // Okay for the description to be empty
+  
+  std::string priorityText = args.getArg(SOCKET_INDEX_OF_PRIORITY);
+  
+  ArPriority::Priority priority = ArPriority::getPriorityFromName
+                                                (priorityText.c_str(),
+                                                 &ok);
+
+  if (!ok) {
+
+    if ((errorBuffer != NULL) && (errorBufferLen > 0)) {
+      snprintf(errorBuffer, errorBufferLen,
+               "Priority was '%s' but can only be one of Basic, Intermediate, Advanced, Expert, Factory, Calibration",
+	             args.getArg(SOCKET_INDEX_OF_PRIORITY));
+    }
+    return false;
+
+  } // end if priority not parsed
+
+
+  std::string typeText = args.getArg(SOCKET_INDEX_OF_TYPE);
+
+  ArConfigArg::Type type = typeFromString(typeText.c_str());
+
+  
+  switch (type) {
+
+  case INT:
+  {
+    int defaultInt = -1; 
+    int minInt = INT_MIN;
+    int maxInt = INT_MAX;
+    
+    if (args.getArgc() > SOCKET_INDEX_OF_VALUE) {
+    
+      defaultInt = args.getArgInt(SOCKET_INDEX_OF_VALUE, &ok);
+
+      if (!ok) {
+        if ((errorBuffer != NULL) && (errorBufferLen > 0)) {
+          snprintf(errorBuffer, errorBufferLen,
+ 	                 "type was int, but default value was '%s' when it should be an int",
+	                 args.getArg(SOCKET_INDEX_OF_VALUE));
+        }
+        return false;
+
+      } // end if error parsing int 
+    }
+    else { // insufficient args
+    
+      if ((errorBuffer != NULL) && (errorBufferLen > 0)) {
+        snprintf(errorBuffer, errorBufferLen,
+  	             "type was int, but no default value was given");
+      }
+      return false;
+
+    } // end else insufficient args
+
+    
+    if (args.getArgc() > SOCKET_INDEX_OF_MIN_VALUE)
+    {
+      if (!isNone(args.getArg(SOCKET_INDEX_OF_MIN_VALUE))) {
+	
+        minInt = args.getArgInt(SOCKET_INDEX_OF_MIN_VALUE, &ok);
+
+        if (!ok) {
+          if ((errorBuffer != NULL) && (errorBufferLen > 0)) {
+            snprintf(errorBuffer, errorBufferLen,
+                     "type was int, but min was '%s' when it should be an int or 'None'",
+                     args.getArg(SOCKET_INDEX_OF_MIN_VALUE));
+          }
+          return false;
+
+        } // end if error parsing min int
+      } // end if min specified
+    } // end if min arg included
+
+
+    if (args.getArgc() > SOCKET_INDEX_OF_MAX_VALUE)
+    {
+      if (!isNone(args.getArg(SOCKET_INDEX_OF_MAX_VALUE))) {
+	
+        maxInt = args.getArgInt(SOCKET_INDEX_OF_MAX_VALUE, &ok);
+
+        if (!ok) {
+          if ((errorBuffer != NULL) && (errorBufferLen > 0)) {
+            snprintf(errorBuffer, errorBufferLen,
+                     "type was int, but max was '%s' when it should be an int or 'None'",
+                     args.getArg(SOCKET_INDEX_OF_MAX_VALUE));
+          }
+          return false;
+
+        } // end if error parsing max int
+      } // end if max specified
+
+    } // end if max arg included
+
+    if (minInt > maxInt) 
+    {
+      if ((errorBuffer != NULL) && (errorBufferLen > 0)) {
+        snprintf(errorBuffer, errorBufferLen,
+         	       "type was int, but min (%d) is greater than max (%d)",
+                 minInt, maxInt);
+      }
+      return false;
+    }
+
+    if (defaultInt < minInt)
+    {
+      if ((errorBuffer != NULL) && (errorBufferLen > 0)) {
+        snprintf(errorBuffer, errorBufferLen,
+ 	               "type was int, but defaultVal (%d) is less than min (%d)",
+	               defaultInt, minInt);
+      }
+      return false;
+    }
+
+    if (defaultInt > maxInt)
+    {
+      if ((errorBuffer != NULL) && (errorBufferLen > 0)) {
+        snprintf(errorBuffer, errorBufferLen,
+                 "type was int, but defaultVal (%d) is greater than max (%d)",
+                 defaultInt, maxInt);
+      }
+      return false;
+    }
+
+    configArg = ArConfigArg(name.c_str(), 
+                            defaultInt, 
+                            description.c_str(),
+                            minInt, 
+                            maxInt);
+
+  } // end case INT
+
+  break;
+
+
+  case DOUBLE:
+  {
+    double defaultDouble = -1;
+    double minDouble = -HUGE_VAL;
+    double maxDouble = HUGE_VAL;
+
+    if (args.getArgc() > SOCKET_INDEX_OF_VALUE) {
+    
+      defaultDouble = args.getArgDouble(SOCKET_INDEX_OF_VALUE, &ok);
+
+      if (!ok) {
+        if ((errorBuffer != NULL) && (errorBufferLen > 0)) {
+          snprintf(errorBuffer, errorBufferLen,
+                   // KMC 8/9/13 Did not fix "an" just in case client is already relying on message
+	                 "type was double, but default value was '%s' when it should be an double",
+	                 args.getArg(SOCKET_INDEX_OF_VALUE));
+        }
+        return false;
+
+      } // end if error parsing double 
+    }
+    else { // insufficient args
+    
+      if ((errorBuffer != NULL) && (errorBufferLen > 0)) {
+        snprintf(errorBuffer, errorBufferLen,
+	               "type was double, but no default value was given");
+      }
+      return false;
+
+    } // end else insufficient args
+
+    
+    if (args.getArgc() > SOCKET_INDEX_OF_MIN_VALUE)
+    {
+      if (!isNone(args.getArg(SOCKET_INDEX_OF_MIN_VALUE))) {
+	
+        minDouble = args.getArgDouble(SOCKET_INDEX_OF_MIN_VALUE, &ok);
+
+        if (!ok) {
+          if ((errorBuffer != NULL) && (errorBufferLen > 0)) {
+            snprintf(errorBuffer, errorBufferLen,
+		                 "type was double, but min was '%s' when it should be a double or 'None'",
+                     args.getArg(SOCKET_INDEX_OF_MIN_VALUE));
+          }
+          return false;
+
+        } // end if error parsing min double 
+      } // end if min specified
+    } // end if min arg included
+
+
+    if (args.getArgc() > SOCKET_INDEX_OF_MAX_VALUE)
+    {
+      if (!isNone(args.getArg(SOCKET_INDEX_OF_MAX_VALUE))) {
+	
+        maxDouble = args.getArgDouble(SOCKET_INDEX_OF_MAX_VALUE, &ok);
+
+        if (!ok) {
+          if ((errorBuffer != NULL) && (errorBufferLen > 0)) {
+            snprintf(errorBuffer, errorBufferLen,
+		                 "type was double, but max was '%s' when it should be a double or 'None'",
+                     args.getArg(SOCKET_INDEX_OF_MAX_VALUE));
+          }
+          return false;
+
+        } // end if error parsing max double 
+      } // end if max specified
+
+    } // end if max arg included
+
+    if (minDouble > maxDouble) 
+    {
+      if ((errorBuffer != NULL) && (errorBufferLen > 0)) {
+        snprintf(errorBuffer, errorBufferLen,
+	               "type was double, but min (%g) is greater than max (%g)",
+                 minDouble, maxDouble);
+      }
+      return false;
+    }
+
+    if (defaultDouble < minDouble)
+    {
+      if ((errorBuffer != NULL) && (errorBufferLen > 0)) {
+        snprintf(errorBuffer, errorBufferLen,
+	               "type was double, but defaultVal (%g) is less than min (%g)",
+	               defaultDouble, minDouble);
+      }
+      return false;
+    }
+
+    if (defaultDouble > maxDouble)
+    {
+      if ((errorBuffer != NULL) && (errorBufferLen > 0)) {
+        snprintf(errorBuffer, errorBufferLen,
+	               "type was double, but defaultVal (%g) is greater than max (%g)",
+                 defaultDouble, maxDouble);
+      }
+      return false;
+    }
+    configArg = ArConfigArg(name.c_str(), 
+                            defaultDouble, 
+                            description.c_str(),
+		                        minDouble, 
+                            maxDouble);
+  } // end case double
+  break;
+
+  case BOOL:
+  {
+    bool defaultBool = false;
+    if (args.getArgc() > SOCKET_INDEX_OF_VALUE) {
+    
+      defaultBool = args.getArgBool(SOCKET_INDEX_OF_VALUE, &ok);
+
+      if (!ok) {
+        if ((errorBuffer != NULL) && (errorBufferLen > 0)) {
+          snprintf(errorBuffer, errorBufferLen,
+                   // KMC 8/9/13 Did not fix "an" just in case client is already relying on message
+	                 "type was bool, but default value was '%s' when it should be an bool",
+	                 args.getArg(SOCKET_INDEX_OF_VALUE));
+        }
+        return false;
+
+      } // end if error parsing double 
+    }
+    else { // insufficient args
+    
+      if ((errorBuffer != NULL) && (errorBufferLen > 0)) {
+        snprintf(errorBuffer, errorBufferLen,
+	               "type was bool, but no default value was given");
+      }
+      return false;
+
+    } // end else insufficient args
+
+    configArg = ArConfigArg(name.c_str(), 
+                            defaultBool, 
+                            description.c_str());
+
+  } // end case bool
+
+  break;
+
+  case STRING:
+  {
+    std::string defaultString;
+    if (args.getArgc() > SOCKET_INDEX_OF_VALUE) {
+      defaultString = args.getArg(SOCKET_INDEX_OF_VALUE);
+    }
+
+    configArg = ArConfigArg(name.c_str(), 
+                            defaultString.c_str(), 
+			                      description.c_str());
+
+  } // end case string
+  break;
+
+  case SEPARATOR:
+  {
+    configArg = ArConfigArg(ArConfigArg::SEPARATOR);
+  }
+  break;
+
+  case LIST:
+  {
+    configArg = ArConfigArg(LIST,
+                            name.c_str(), 
+			                      description.c_str());
+
+  } // end case list
+  break; 
+
+  default:
+  {     
+    if ((errorBuffer != NULL) && (errorBufferLen > 0)) {
+      snprintf(errorBuffer, errorBufferLen,
+               "Unknown type '%s' given, choices are int|double|string|bool|separator",
+               args.getArg(SOCKET_INDEX_OF_TYPE));
+    }
+    return false;
+  
+  } // end default
+  break;
+
+  } // end switch type 
+
+
+  std::string displayHint;
+ 
+  if ((args.getArgc() > SOCKET_INDEX_OF_DISPLAY) && 
+      (!isNone(args.getArg(SOCKET_INDEX_OF_DISPLAY)))) {
+
+    displayHint = args.getArg(SOCKET_INDEX_OF_DISPLAY);
+  }
+  configArg.setDisplayHint(displayHint.c_str());
+
+  configArg.setConfigPriority(priority);
+
+  // There are no pointers so the "detach" aspect isn't terribly important
+  copyAndDetach(configArg);
+
+  return true;
+
+} // end method parseSocket
+
+
+AREXPORT bool ArConfigArg::writeValue(ArSocket *socket,
+                                      const char *intro) const
+{
+  char value[10000];
+  const size_t valueLength = sizeof(value);  
+
+  switch (getType()) { 
+  case INT:
+	  snprintf(value, valueLength,
+             "%d", getInt());
+    break;
+  
+  case DOUBLE:
+	  snprintf(value, valueLength,
+             "%g", getDouble());
+    break;
+
+  case BOOL:
+	  snprintf(value, valueLength,
+             "%s", ArUtil::convertBool(getBool()));
+    break;
+	
+  case STRING:
+    snprintf(value, valueLength,
+             "%s", getString());
+    break;
+
+  case LIST:
+    snprintf(value, valueLength,
+             "%s",
+             LIST_BEGIN_TAG);
+    break;
+ 
+  default:
+    // Don't write anything for other arg types
+    return false;
+
+  } // end switch
+      
+  socket->writeString("%s %s %s", 
+                      ((intro != NULL) ? intro : ""),
+                      getName(), 
+                      value);
+
+  if (getType() == LIST) {
+
+    char introBuf[512];
+    const size_t introBufLength = sizeof(introBuf);
+
+    snprintf(introBuf, introBufLength, 
+             "%s    ", intro);
+
+    for (int c = 0; c < getArgCount(); c++) {
+      const ArConfigArg *child = getArg(c);
+      if (child == NULL) {
+        continue;
+      }
+      child->writeValue(socket, introBuf);
+
+    } // end for each child
+
+
+    snprintf(value, valueLength,
+             "%s",
+             LIST_END_TAG);
+
+    socket->writeString("%s %s %s", 
+                        ((intro != NULL) ? intro : ""),
+                        getName(), 
+                        value);
+
+  } // end list type
+
+  return true;
+ 
+} // end method writeValue
+
+
+AREXPORT bool ArConfigArg::writeInfo(ArSocket *socket,
+                                     const char *intro) const
+{
+  // Don't write nameless parameters
+  if (ArUtil::isStrEmpty(getName())) {
+    return false;
+  }
+
+  char min[512];
+  char max[512];
+  char type[512];
+  char level[512];
+  char delimiter[512];
+  const size_t delimiterLength = 512;
+
+  snprintf(min, sizeof(min), "None");
+  snprintf(max, sizeof(max), "None");
+
+
+  const char *priorityName = ArPriority::getPriorityName(getConfigPriority());
+
+  if (priorityName == NULL) {
+
+	  ArLog::log(ArLog::Normal, "Config parameter %s has unknown priority", 
+               getName());
+    return false;
+  }
+
+  if (getConfigPriority() < ArPriority::FACTORY) {
+
+    snprintf(level, sizeof(level),
+             priorityName);
+  }
+  else { // convert to all caps
+
+    // This was done to match the original "FACTORY" output
+    size_t i = 0;
+    size_t priorityNameLength = strlen(priorityName);
+
+    for (;
+         ((i < priorityNameLength) && (i < sizeof(level))); 
+         i++) {
+      level[i] = ::toupper(priorityName[i]);
+    } 
+    if (i >= sizeof(level)) {
+      i = sizeof(level) -1;
+    }
+    level[i] = '\0';
+
+  } // else convert to all caps
+
+  switch (getType()) { 
+  case INT:
+  	snprintf(type, sizeof(type), "Int");
+  	snprintf(min, sizeof(min), "%d", getMinInt());
+  	snprintf(max, sizeof(max), "%d", getMaxInt());
+     break;
+  
+  case DOUBLE:
+	  snprintf(type, sizeof(type), "Double");
+	  snprintf(min,  sizeof(min),  "%g", getMinDouble());
+	  snprintf(max,  sizeof(max),  "%g", getMaxDouble());
+    break;
+
+  case BOOL:
+	  snprintf(type, sizeof(type), "Bool");
+    break;
+	
+  case STRING:
+	  snprintf(type, sizeof(type), "String");
+    break;
+
+  case LIST:
+	  snprintf(type, sizeof(type), "List");
+
+    snprintf(delimiter, delimiterLength,
+             "%s",
+             LIST_BEGIN_TAG);
+    break;
+ 
+  default:
+    // Don't write anything for other arg types
+    return false;
+
+  } // end switch
+     
+ 
+  socket->writeString("%s %s %s %s %s %s \"%s\" \"%s\" \"%s\"", 
+                      ((intro != NULL) ? intro : ""),
+	                    type, 
+                      getName(), 
+                      level, 
+              	      min, 
+                      max, 
+                      ((getDescription() != NULL) ? getDescription() : ""), 
+                      ((getDisplayHint() != NULL) ? getDisplayHint() : ""),
+                      delimiter);
+
+
+  if (getType() == LIST) {
+
+    char introBuf[512];
+    const size_t introBufLength = sizeof(introBuf);
+
+    snprintf(introBuf, introBufLength, 
+             "%s    ", intro);
+
+    for (int c = 0; c < getArgCount(); c++) {
+      const ArConfigArg *child = getArg(c);
+      if (child == NULL) {
+        continue;
+      }
+      child->writeInfo(socket, introBuf);
+
+    } // end for each child
+
+
+    snprintf(delimiter, delimiterLength,
+             "%s",
+             LIST_END_TAG);
+
+    socket->writeString("%s %s %s %s %s %s \"%s\" \"%s\" \"%s\"", 
+                        ((intro != NULL) ? intro : ""),
+	                      type, 
+                        getName(), 
+                        level, 
+                	      min, 
+                        max, 
+                        ((getDescription() != NULL) ? getDescription() : ""), 
+                        ((getDisplayHint() != NULL) ? getDisplayHint() : ""),
+                        delimiter);
+
+
+  } // end list type
+
+  return true;
+
+} // end method writeInfo
+ 
+
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+// Resource/Translator Files
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 AREXPORT bool ArConfigArg::parseResource(ArArgumentBuilder *arg, 
 				                                 char *errorBuffer,
@@ -3732,16 +4602,26 @@ AREXPORT void ArConfigArg::setRestartLevel(RestartLevel level)
 }
 
 
-AREXPORT bool ArConfigArg::getSupressChanges() const
+AREXPORT bool ArConfigArg::getSuppressChanges() const
 {
-  return mySupressChanges;
+  return mySuppressChanges;
 }
   
-AREXPORT void ArConfigArg::setSupressChanges(bool supressChanges)
+AREXPORT void ArConfigArg::setSuppressChanges(bool suppressChanges)
 {
-  mySupressChanges = supressChanges;
+  mySuppressChanges = suppressChanges;
 }
 
+
+AREXPORT bool ArConfigArg::isSerializable() const
+{
+  return myIsSerializable;
+}
+
+AREXPORT void ArConfigArg::setSerializable(bool isSerializable)
+{
+  myIsSerializable = isSerializable;
+}
   
 AREXPORT bool ArConfigArg::hasMinBound() const
 {
@@ -3857,6 +4737,21 @@ AREXPORT bool ArConfigArg::hasExternalDataReference() const
   return b;
 
 } // end method hasExternalDataReference
+
+  
+AREXPORT bool ArConfigArg::isPlaceholder() const
+{
+  switch (getType()) {
+  case STRING_HOLDER:
+  case LIST_HOLDER:
+  case DESCRIPTION_HOLDER:
+    return true;
+  default:
+    return false;
+  }
+  return false;
+}
+
 
 AREXPORT bool ArConfigArg::isValueEqual(const ArConfigArg &other) const
 {
@@ -4062,14 +4957,14 @@ AREXPORT bool ArConfigArg::setValue(const ArConfigArg &source,
 } // end method setValue
 
   
-bool ArConfigArg::isTranslated() const
+AREXPORT bool ArConfigArg::isTranslated() const
 {
   return myIsTranslated;
 
 } // end method isTranslated
 
   
-void ArConfigArg::setTranslated(bool b) 
+AREXPORT void ArConfigArg::setTranslated(bool b) 
 {
   myIsTranslated = b;
 
@@ -4081,7 +4976,7 @@ AREXPORT void ArConfigArg::setDescription(const char *description)
   myDescription = description; 
 }
 
-bool ArConfigArg::isListType() const
+AREXPORT bool ArConfigArg::isListType() const
 {
   return ((myType == LIST) || (myType == LIST_HOLDER));
 }

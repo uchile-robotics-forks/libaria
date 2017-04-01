@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -74,7 +75,9 @@ class ArNetServer
 public:
   /// Constructor
   AREXPORT ArNetServer(bool addAriaExitCB = true,
-      bool doNotAddShutdownServer = false);
+		       bool doNotAddShutdownServer = false, 
+		       const char *name = "ArNetServer", 
+		       ArNetServer *childServer = NULL);
   /// Destructor
   AREXPORT ~ArNetServer();
   
@@ -94,6 +97,8 @@ public:
   /// Removes a command
   AREXPORT bool remCommand(const char *command);
 
+  /// Gets the name of this instance
+  const char *getName(void) { return myName.c_str(); }
 #ifndef SWIG
   /** @brief Sends the given string to all the clients.  See also the
    *  notes on locking in the class description.
@@ -114,8 +119,11 @@ public:
   AREXPORT void sendToAllClientsNextCycle(const char *str, ...);
 #endif
 
-  /// Sends the given string to all the clients next cycle, no varargs, wrapper for java
+  /// Sends the given string to all the clients next cycle, no varargs
   AREXPORT void sendToAllClientsNextCyclePlain(const char *str);
+
+  /// Sends the given string to all the clients next cycle, no varargs... helper for config changes
+  AREXPORT bool sendToAllClientsNextCyclePlainBool(const char *str);
 
 #ifndef SWIG
   /** @brief Sends the given string to the (hopefully) the client given (this method may go away)
@@ -187,8 +195,9 @@ public:
   AREXPORT int tryLock() {return(myMutex.tryLock());}
   /// Unlock the server
   AREXPORT int unlock() {return(myMutex.unlock());}
-
 protected:
+  std::string myName;
+  ArNetServer *myChildServer;
   ArMutex myMutex;
   ArSocket myAcceptingSocket;
   std::map<std::string, ArFunctor3<char **, int, ArSocket *> *, ArStrCaseCmpOp> myFunctorMap;

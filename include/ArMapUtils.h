@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -523,7 +524,7 @@ public:
    * @return bool true if the changes were successfully determined; false if
    * an error occurred
   **/
-  static bool calculateChanges(ArMapFileLineSet &origLines,
+  AREXPORT static bool calculateChanges(ArMapFileLineSet &origLines,
                                ArMapFileLineSet &newLines,
                                ArMapFileLineSet *deletedLinesOut,
                                ArMapFileLineSet *addedLinesOut,
@@ -552,10 +553,10 @@ public:
   ~ArMapFileLineSet() {}
 
   /// Searches the set for the given parent line.
-  iterator find(const ArMapFileLine &groupParent);
+  AREXPORT iterator find(const ArMapFileLine &groupParent);
 
   /// Writes the set to the Aria output log.
-  void log(const char *prefix);
+  AREXPORT void log(const char *prefix);
 
 }; // end class ArMapFileLineSet
 

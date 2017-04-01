@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -34,6 +35,7 @@ Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 
 class ArArgumentBuilder;
 class ArFileParser;
+class ArSocket;
 
 /// Argument class for ArConfig
 /** 
@@ -46,20 +48,20 @@ class ArFileParser;
 
     Which constructor you use determines the value type of the ArConfigArg object.
   
-    A typical idiom for creating ArConfigArg objects and adding them to ArConfig
-    is to create a temporary ArConfigArg in the call to ArConfig::addParam():
-
+    Example:
     @code
     config->addParam(ArConfigArg("MyParameter", &myTarget, "Example Parameter"), "Example Section");
     @endcode
 
-    Where <tt>config</tt> is a pointer to an ArConfig object or subclass, and
+    Where: <tt>config</tt> is a pointer to an ArConfig object or subclass (e.g.  use
+    <tt>ArConfig* config = Aria::getConfig()</tt> to use the global Aria ArConfig
+    object);
     <tt>myTarget</tt> is a variable (e.g. int) that is a class member whose instance will not
     be destroyed before the end of the program, or which will remove the parameter
     from ArConfig before being destroyed (the pointer to <tt>myTarget</tt> that is stored
     in ArConfig must not become invalid.)  The ArConfigArg object passed to
-    addParam() will be copied and stored in ArConfig.
-    
+    addParam() will be copied and stored in ArConfig.  The type of the target
+    variable (<tt>myTarget</tt>) determines the type of the parameter.
 
 
     @swignote Swig cannot determine the correct constructor to use
@@ -71,6 +73,23 @@ class ArFileParser;
      in addition to passing them to ArConfig, and read new values from those
      objects if ArConfig changes; or pass functors to ArConfigArg instead
      of the initial value.
+
+    Special features:
+
+    You can add a separator line to the section by adding an ArConfigArg with type SEPARATOR: 
+    @code
+      config->addParam(ArConfigArg(ArConfigArg::SEPARATOR), "My Section");
+    @endcode
+
+    You can specify a list of possible values by setting a "display hint".  For
+    example, for a string parameter with possible values "A", "B" and "C":
+    @code
+      ArConfigArg arg("Example", exampleString, "Example string parameter");
+      arg.setDisplayHint("Choices:A;;B;;C");
+      config->addParam(arg);
+    @endcode
+    This information is provided to clients, but you should still verify the
+    value is not unexpected when it changes or when you use the value.
 */
 class ArConfigArg
 {
@@ -111,33 +130,68 @@ public:
   };
 
 
+  enum SocketIndices {
+
+    SOCKET_INDEX_OF_SECTION_NAME = 0,
+    SOCKET_INDEX_OF_ARG_NAME = 1,
+    SOCKET_INDEX_OF_DESCRIPTION = 2,
+    SOCKET_INDEX_OF_PRIORITY = 3,
+    SOCKET_INDEX_OF_TYPE = 4,
+
+    SOCKET_INDEX_OF_VALUE = 5,
+    SOCKET_INDEX_OF_MIN_VALUE = 6,
+    SOCKET_INDEX_OF_MAX_VALUE = 7,
+
+    SOCKET_INDEX_OF_DISPLAY = 8, 
+    SOCKET_INDEX_OF_PARENT_PATH = 9,
+    SOCKET_INDEX_OF_SERIALIZABLE = 10
+
+  }; // end enum SocketIndices
+
+
+  enum ResourceIndices {
+
+    RESOURCE_INDEX_OF_SECTION_NAME = 0,
+    RESOURCE_INDEX_OF_ARG_NAME = 1,
+    RESOURCE_INDEX_OF_TYPE = 2,
+    RESOURCE_INDEX_OF_PRIORITY = 3,
+    RESOURCE_INDEX_OF_RESTART_LEVEL = 4,
+    RESOURCE_INDEX_OF_PARENT_PATH = 5,
+    RESOURCE_INDEX_OF_DESCRIPTION = 6,
+    RESOURCE_INDEX_OF_EXTRA = 7,
+    RESOURCE_INDEX_OF_DISPLAY = 8, // not yet supported
+    RESOURCE_INDEX_OF_NEW = 9 
+
+  }; // end enum ResourceIndices
+
+
 
   /// Keyword that indicates the start of an ArConfigArg LIST object, for ArFileParser.
-  static const char *LIST_BEGIN_TAG;
+  AREXPORT static const char *LIST_BEGIN_TAG;
   /// Keyword that indicates the end of an ArConfigArg LIST object, for ArFileParser.
-  static const char *LIST_END_TAG;
+  AREXPORT static const char *LIST_END_TAG;
 
   /// Resource file keyword that indicates an empty string (cannot write empty for csv).
-  static const char *NULL_TAG;
+  AREXPORT static const char *NULL_TAG;
   /// Resource file keyword that indicates a new entry.
-  static const char *NEW_RESOURCE_TAG;
+  AREXPORT static const char *NEW_RESOURCE_TAG;
   
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   // Static Methods
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
   /// Returns a text representation of the given type, suitable for logging.
-  static const char *toString(Type t);
+  AREXPORT static const char *toString(Type t);
 
   /// Returns a text representation of the given RestartLevel, suitable for logging.
-  static const char *toString(RestartLevel r);
+  AREXPORT static const char *toString(RestartLevel r);
 
 
   /// Given a text representation, returns the appropriate Type.
-  static Type typeFromString(const char *text);
+  AREXPORT static Type typeFromString(const char *text);
 
   /// Given a text representation, returns the appropriate RestartLevel.
-  static RestartLevel restartLevelFromString(const char *text);
+  AREXPORT static RestartLevel restartLevelFromString(const char *text);
 
 
 
@@ -269,6 +323,11 @@ public:
   /// Copies the translation data from given arg to this one.
   AREXPORT bool copyTranslation(const ArConfigArg &arg);
 
+  /// Converts a list holder argument to an actual list and copies the children from arg.
+  AREXPORT bool promoteList(const ArConfigArg &arg);
+  
+  /// Whether the arg type is LIST or LIST_HOLDER
+  AREXPORT bool isListType() const;
 
   /// Gets the type of the argument
   AREXPORT ArConfigArg::Type getType(void) const;
@@ -304,11 +363,6 @@ public:
 
   /// Sets the argument value for string arguments
   AREXPORT bool setString(const char *str, 
-                          char *errorBuffer = NULL, size_t errorBufferLen = 0, 
-                          bool doNotSet = false);
-
-  /// Sets the argument value for string arguments. The value of @a str is copied to the target string.
-  AREXPORT bool setString(const std::string &str,
                           char *errorBuffer = NULL, size_t errorBufferLen = 0, 
                           bool doNotSet = false);
 
@@ -364,11 +418,17 @@ public:
   /// Adds a child arg to this arg.  Valid only for LIST type; otherwise returns false.
   AREXPORT bool addArg(const ArConfigArg &arg); 
 
+  /// Removes the child arg that has the same name as the specified one. Valid only for LIST type.
+  AREXPORT bool removeArg(const ArConfigArg  &arg);
+
   /// Returns whether the list contains child args. Valid only for LIST type; otherwise returns false.
   AREXPORT bool hasArgs() const;
 
   /// Returns the number of child args. Valid only for LIST type; otherwise returns 0.
-  AREXPORT size_t getArgCount() const;                
+  AREXPORT size_t getArgCount() const;   
+
+  /// Returns the total number of descendent args (children, grandchildren, etc). Valid only for LIST type; otherwise returns 0.
+  AREXPORT size_t getDescendantArgCount() const;
 
   // KMC 7/9/12 Right now, the returned args will not have the parent set to this arg.
   // I suspect that this may present an implementation issue later but am not sure.
@@ -388,6 +448,12 @@ public:
 
   /// Finds the specified child arg.  Valid only for LIST type; otherwise returns NULL.
   AREXPORT ArConfigArg *findArg(const char *childParamName);
+
+  /// If the arg is a list member, returns all ancestors in order.
+  AREXPORT bool getAncestorList(std::list<ArConfigArg*> *ancestorListOut);
+
+  /// If the arg is a list member, returns the top-most arg. Otherwise, returns this.
+  AREXPORT const ArConfigArg *getTopLevelArg() const;
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   // Miscellaneous Attributes
@@ -409,12 +475,19 @@ public:
   /// Sets the restart level of this parameter (only used by ArConfig)
   AREXPORT void setRestartLevel(RestartLevel level);
 
-  /// Gets if notifications of changes are supressed (for the central
+  /// Gets if notifications of changes are suppressed (for the central
   /// server config)
-  AREXPORT bool getSupressChanges(void) const;
-  /// Sets if notifications of changes are supressed (for the central
+  AREXPORT bool getSuppressChanges(void) const;
+  /// Sets if notifications of changes are suppressed (for the central
   /// server config)
-  AREXPORT void setSupressChanges(bool supressChanges);
+  AREXPORT void setSuppressChanges(bool suppressChanges);
+
+
+  /// Returns whether the configuration parameter should be saved in the file (default is true).
+  AREXPORT bool isSerializable() const;
+
+  /// Sets whether the configuration parameter should be saved in the file (default is true).
+  AREXPORT void setSerializable(bool isSerializable);
 
 
   /// Returns a pointer to the immediate parent arg.  If this is not a child ArConfigArg, then returns NULL.
@@ -443,8 +516,15 @@ public:
   /// Returns true if this arg points to a member of another object, false if arg is self-contained.
   AREXPORT bool hasExternalDataReference() const;
 
+  /// Returns true if this is a special placeholder arg, i.e. string, list, or description.
+  AREXPORT bool isPlaceholder() const;
+
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   // Generic (Type-Independent) Methods
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // File Parsing 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
   /// Adds given parserCB handler for the appropriate keyword(s) to the given file parser.
@@ -465,7 +545,7 @@ public:
 				                      size_t errorBufferLen,
                               const char *logPrefix = "",
                               bool isQuiet = false,
-			      bool *changed = NULL);
+                              bool *changed = NULL);
 
   /// Writes this arg to the given file, in a format suitable for reading by parseArgument.
   AREXPORT bool writeArguments(FILE *file,
@@ -486,6 +566,43 @@ public:
                             size_t lineLen,
                             const char *logPrefix = "") const;
 
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Sockets
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  /// Determines whether the given arg text is empty or the special "None" identifier. 
+  AREXPORT static bool isNone(const char *argText);
+
+  /// Parses a new config arg definition from the given arguments (generally received on a text socket).
+  /**
+   * The given args are formatted according to the SocketIndices defined above.
+  **/
+  AREXPORT bool parseSocket(const ArArgumentBuilder &args,
+                            char *errorBuffer,
+                            size_t errorBufferLen);
+
+  /// Writes the value of this parameter, and all child parameters, to the given text socket.
+  /**
+   *  This method is primarily intended for limited, internal use. The format of the 
+   *  output string is:
+   *     <i>intro</i> <i>paramName</i> <i>paramValue</i>
+  **/
+  AREXPORT bool writeValue(ArSocket *socket,
+                           const char *intro) const;
+
+  /// Writes the definition of this parameter, and all child parameters, to the given text socket.
+  /**
+   * This method is primarily intended for limited, internal use. The format of the 
+   * output string is:
+   *    <i>intro</i> <i>type</i> <i>paramName</i> <i>priority</i> <i>min</i> <i>max</i> <i>description</i> <i>displayHint</i> <i>listDelimiter</i>
+  **/
+  AREXPORT bool writeInfo(ArSocket *socket,
+                          const char *intro) const;
+  
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Misc
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ 
   /// Logs the type, name, and value of this argument
   AREXPORT void log(bool verbose = false,
                     int indentCount = 1,
@@ -521,24 +638,11 @@ public:
 
 
   /// Returns whether the arg has been translated by a resource file.
-  bool isTranslated() const;
+  AREXPORT bool isTranslated() const;
   
   /// Sets whether the arg has been translated by a resource file.
-  void setTranslated(bool b);
-
-
-  enum ResourceIndices {
-    RESOURCE_INDEX_OF_SECTION_NAME = 0,
-    RESOURCE_INDEX_OF_ARG_NAME = 1,
-    RESOURCE_INDEX_OF_TYPE = 2,
-    RESOURCE_INDEX_OF_PRIORITY = 3,
-    RESOURCE_INDEX_OF_RESTART_LEVEL = 4,
-    RESOURCE_INDEX_OF_PARENT_PATH = 5,
-    RESOURCE_INDEX_OF_DESCRIPTION = 6,
-    RESOURCE_INDEX_OF_EXTRA = 7,
-    RESOURCE_INDEX_OF_DISPLAY = 8, // not yet supported
-    RESOURCE_INDEX_OF_NEW = 9 
-  };
+  AREXPORT void setTranslated(bool b);
+  
 
   enum {
     MAX_RESOURCE_ARG_TEXT_LENGTH = 1024
@@ -627,8 +731,6 @@ private:
   /// Sets the parent pointer of this arg.
   void setParent(ArConfigArg *parentArg);
 
-  /// Whether the arg type is LIST or LIST_HOLDER
-  bool isListType() const;
 
 // KMC 7/11/12 Changed from protected to private so future changes are less
 // of a concern
@@ -743,8 +845,8 @@ private:
   /// Number of spaces to indent each level of list contents
   static int ourIndentSpaceCount;
 
-  static std::map<std::string, Type> *ourTextToTypeMap;
-  static std::map<std::string, RestartLevel> *ourTextToRestartLevelMap;
+  static std::map<std::string, Type, ArStrCaseCmpOp> *ourTextToTypeMap;
+  static std::map<std::string, RestartLevel, ArStrCaseCmpOp> *ourTextToRestartLevelMap;
 
   /// Type of this arg
   ArConfigArg::Type myType;
@@ -766,8 +868,6 @@ private:
   std::string myDisplayHint;
   /// Indicates whether modifying the arg will result in a system restart
   RestartLevel myRestartLevel;
-  /// Supressses change notification (for central server config params that should cause a restart on a robot, but not on the central server)
-  bool mySupressChanges;
 
   /// Pointer to the parent arg, or NULL if this arg is not a member of a LIST 
   ArConfigArg *myParentArg;
@@ -780,6 +880,10 @@ private:
   bool myIgnoreBounds : 1;
   /// Whether this arg has been translated by a resource file
   bool myIsTranslated : 1;
+  /// Supressses change notification (for central server config params that should cause a restart on a robot, but not on the central server)
+  bool mySuppressChanges : 1;
+  /// Whether this arg should be written to the configuration file
+  bool myIsSerializable : 1;
 
 }; // end class ArConfigArg
 

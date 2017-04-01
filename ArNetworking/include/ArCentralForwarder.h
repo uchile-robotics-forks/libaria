@@ -19,6 +19,7 @@
 class ArCentralForwarder 
 {
 public:
+  /// Normal constructor
   AREXPORT ArCentralForwarder(
 	  ArServerBase *mainServer, ArSocket *socket,
 	  const char *robotName, int startingPort, 
@@ -28,50 +29,56 @@ public:
 	  const char *enforceProtocolVersion,
 	  ArServerCommands::Type enforceType
       );
-  AREXPORT ~ArCentralForwarder();
+  /// Constructor for those that are going to inherit
+  AREXPORT ArCentralForwarder();
+  /// Destructor
+  AREXPORT virtual ~ArCentralForwarder();
 
   /// Gets the robot name
-  const char *getRobotName(void) { return myRobotName.c_str(); }
+  virtual const char *getRobotName(void) { return myRobotName.c_str(); }
 
   /// Adds a functor for some particular data
-  AREXPORT bool addHandler(const char *name, 
+  AREXPORT virtual bool addHandler(const char *name, 
 			    ArFunctor1 <ArNetPacket *> *functor);
 
   /// Removes a functor for some particular data by name
-  AREXPORT bool remHandler(const char *name, ArFunctor1<ArNetPacket *> *functor);
+  AREXPORT virtual bool remHandler(const char *name, ArFunctor1<ArNetPacket *> *functor);
 
   /// Request some data every @a mSec milliseconds
-  AREXPORT bool request(const char *name, long mSec);		
+  AREXPORT virtual bool request(const char *name, long mSec);		
 
   /// Request some data (or send a command) just once
-  AREXPORT bool requestOnce(const char *name, 
+  AREXPORT virtual bool requestOnce(const char *name, 
 			                      ArNetPacket *packet = NULL,
                             bool quiet = false);
 
   /// Request some data (or send a command) just once by UDP 
-  AREXPORT bool requestOnceUdp(const char *name, 
+  AREXPORT virtual bool requestOnceUdp(const char *name, 
 			       ArNetPacket *packet = NULL, 
 			       bool quiet = false);
 
   /// Request some data (or send a command) just once with a string as argument
-  AREXPORT bool requestOnceWithString(const char *name, const char *str);
+  AREXPORT virtual bool requestOnceWithString(const char *name, const char *str);
 
   /// Sees if this data exists
-  AREXPORT bool dataExists(const char *name);
+  AREXPORT virtual bool dataExists(const char *name);
 
+  /// Gets if this forwarder is connected
+  virtual bool isConnected(void) { return myState == STATE_CONNECTED; }
   
-
   /// Gets the server (shouldn't need to be used by anyone)
-  ArServerBase *getServer(void) { return myServer; }
+  virtual ArServerBase *getServer(void) { return myServer; }
   /// Gets the client (shouldn't need to be used by anyone)
-  ArClientBase *getClient(void) { return myClient; }
+  virtual ArClientBase *getClient(void) { return myClient; }
+
+  /// the call that actually does all the work (not virtual since this
+  /// may be different per implementation)
+  AREXPORT bool callOnce(double heartbeatTimeout, double udpHeartbeatTimeout,
+			 double robotBackupTimeout, double clientBackupTimeout);
+
   /// Gets the port (shouldn't need to be used by anyone)
   int getPort(void) { return myPort; }
-  AREXPORT bool callOnce(
-	  double heartbeatTimeout, double udpHeartbeatTimeout,
-	  double robotBackupTimeout, double clientBackupTimeout);
-  AREXPORT bool isConnected(void) { return myState == STATE_CONNECTED; }
-  AREXPORT void willReplace(void) { myBeingReplaced = true; }
+  void willReplace(void) { myBeingReplaced = true; }
 protected:
   AREXPORT void netCentralHeartbeat(ArNetPacket *packet);
 

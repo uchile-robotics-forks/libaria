@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -59,7 +60,8 @@ public:
   /// Finds the lines, and then copies the points that AREN'T in the lines into a new set
   AREXPORT std::set<ArPose> getNonLinePointsAsSet();
 
-  /// Gets the position the last lines were gotten at
+  /// Gets the robot pose at which the data from the range device (provided in
+  /// constructor) was received
   ArPose getLinesTakenPose(void) { return myPoseTaken; }
   /// Logs all the points and lines from the last getLines
   AREXPORT void saveLast(void);
@@ -72,11 +74,11 @@ public:
   /// Sets some parameters for line creation
   void setLineCreationParams(int minLineLen = 40, int minLinePoints = 2)
     { myMakingMinLen = minLineLen; myMakingMinPoints = minLinePoints; }
-  /// Sets some parameters for line combining
+  /// Sets some parameters for combining two possible lines into one line.
   void setLineCombiningParams(int angleTol = 30, int linesCloseEnough = 75) 
     { myCombiningAngleTol = angleTol; 
     myCombiningLinesCloseEnough = linesCloseEnough; }
-  /// Filter out lines smaller than this
+  /// Filter out lines based on line length or number of points in the line.
   void setLineFilteringParams(int minPointsInLine = 3, int minLineLength = 75)
     { myFilteringMinPointsInLine = minPointsInLine; 
     myFilteringMinLineLength = minLineLength; }
@@ -85,9 +87,17 @@ public:
 			  int maxAveDistFromLine = 20)
     { myValidMaxDistFromLine = maxDistFromLine; 
     myValidMaxAveFromLine = maxAveDistFromLine; }
-  /// Sets the maximum distance between points that'll still be included in the same line
+
+  /** Sets a maximum distance for points to be included in the same line. If
+   points are greater than this distance apart, then they will not be
+   considered in the same line.  If this value is 0, then there is no
+   maximum-distance condition and points will be considered part of a line no
+   matter how far apart.
+  */
   void setMaxDistBetweenPoints(int maxDistBetweenPoints = 0)
     { myMaxDistBetweenPoints = maxDistBetweenPoints; }
+
+  /// Add this ArLineFinder's parameters to the given ArConfig object.
   AREXPORT void addToConfig(ArConfig *config,
 			    const char *section);
 protected:

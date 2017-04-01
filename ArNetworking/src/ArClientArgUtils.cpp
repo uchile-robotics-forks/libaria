@@ -18,18 +18,22 @@
 
 AREXPORT ArClientArg::ArClientArg(bool isDisplayHintParsed,
                                   ArPriority::Priority lastPriority,
-                                  int version) :
+                                  int version,
+                                  bool isSingleParam) :
   myIsDisplayHintParsed(isDisplayHintParsed),
   myLastPriority(lastPriority),
   myVersion(version),
+  myIsSingleParam(isSingleParam),
   myBuffer(),
-  myDisplayBuffer()
+  myDisplayBuffer(),
+  myParentPathNameBuffer()
 {}
 
 AREXPORT ArClientArg::~ArClientArg()
 {}
 
-AREXPORT bool ArClientArg::isSendableParamType(const ArConfigArg &arg)
+AREXPORT bool ArClientArg::isSendableParamType(const ArConfigArg &arg,
+                                               bool isIncludeSeparator)
 {
   switch (arg.getType()) {
   case ArConfigArg::INT:
@@ -37,8 +41,9 @@ AREXPORT bool ArClientArg::isSendableParamType(const ArConfigArg &arg)
   case ArConfigArg::BOOL:
   case ArConfigArg::LIST:
   case ArConfigArg::STRING:
-  case ArConfigArg::SEPARATOR:
     return true;
+  case ArConfigArg::SEPARATOR:
+    return isIncludeSeparator;
 
   default:
     return false;
@@ -47,7 +52,8 @@ AREXPORT bool ArClientArg::isSendableParamType(const ArConfigArg &arg)
 
 
 AREXPORT bool ArClientArg::createArg(ArNetPacket *packet, 
-							                       ArConfigArg &argOut)
+							                       ArConfigArg &argOut,
+                                     std::string *parentPathNameOut) 
 {
 	if (packet == NULL) {
     ArLog::log(ArLog::Verbose, "ArClientArg::createArg() cannot unpack NULL packet");
@@ -190,7 +196,8 @@ AREXPORT bool ArClientArg::createArg(ArNetPacket *packet,
   default:
 
 		isSuccess = false;
-    ArLog::log(ArLog::Terse, "ArClientArg::createArg() unsupported param type %c",
+    ArLog::log(ArLog::Terse, 
+               "ArClientArg::createArg() unsupported param type '%c'",
                argType);
 	}
 
@@ -234,6 +241,25 @@ AREXPORT bool ArClientArg::createArg(ArNetPacket *packet,
       argOut.setRestartLevel(restart);
     }  
   }
+  if (myVersion >= 4) {
+    bool isSerializable = packet->bufToUByte();
+    argOut.setSerializable(isSerializable);
+  }
+
+  if (myVersion >= 4) {
+    if (isSuccess) {
+
+      packet->bufToStr(myParentPathNameBuffer, BUFFER_LENGTH);
+  
+      if (myIsSingleParam) {
+  
+        if (parentPathNameOut != NULL) {
+          *parentPathNameOut = myParentPathNameBuffer;
+        }
+      } // end if single param
+
+    } // end if success
+  } // end if single param
 
 	return isSuccess;
 
@@ -241,7 +267,8 @@ AREXPORT bool ArClientArg::createArg(ArNetPacket *packet,
 
 
 AREXPORT bool ArClientArg::createPacket(const ArConfigArg &arg,
-                                        ArNetPacket *packet)
+                                        ArNetPacket *packet,
+                                        const char *parentPathName)
 {
   if (packet == NULL) {
     ArLog::log(ArLog::Verbose, 
@@ -306,11 +333,11 @@ AREXPORT bool ArClientArg::createPacket(const ArConfigArg &arg,
     break;
 
  case ArConfigArg::LIST:
+// case ArConfigArg::LIST_HOLDER:
    {
     argType = (myIsDisplayHintParsed ? 'l' : 'L');
     packet->byteToBuf(argType);
 
-		
     
     std::list<ArConfigArg> childList = arg.getArgs();
    
@@ -362,6 +389,17 @@ AREXPORT bool ArClientArg::createPacket(const ArConfigArg &arg,
   if (isSuccess && (myVersion >= 2)) {
     packet->byteToBuf(arg.getRestartLevel());
   }
+  if (isSuccess && (myVersion >= 4)) {
+    packet->uByteToBuf(arg.isSerializable());
+  }
+  if (isSuccess && (myVersion >= 4)) {
+    if (myIsSingleParam) {
+      packet->strToBuf((parentPathName != NULL) ? parentPathName : "");
+    }
+    else {
+      packet->strToBuf("");
+    }
+  } 
 
 	return isSuccess;
 
@@ -576,7 +614,12 @@ AREXPORT bool ArClientArg::argTextToBuf(const ArConfigArg &arg,
 
   case ArConfigArg::LIST:
     {
-
+    myBuffer[0] = '\0';
+    break;
+// KMC I don't understand the following code.  It dooesn't seem like a good idea
+// to just start listing children and their values. I don't think any client
+// really expects that??
+/****
         ArLog::log(ArLog::Terse,
                    "UNSUPPORTED METHOD ArClientArg::argTextToBuf (LIST)");
 
@@ -593,9 +636,9 @@ AREXPORT bool ArClientArg::argTextToBuf(const ArConfigArg &arg,
                                                          packet);
           }
         } // end for each child
-
+****/
      
-        int sendableCount = 0;
+//        int sendableCount = 0;
 
  //       for (std::list<ArConfigArg>::const_iterator iter1 = childList.begin();
 //           iter1 != childList.end();
@@ -631,6 +674,10 @@ AREXPORT bool ArClientArg::addArgTextToPacket(const ArConfigArg &arg,
   }
 
   bool isSuccess = true;
+
+  if (myIsSingleParam && isSuccess) {
+    isSuccess = addListBeginToPacket(arg.getParentArg(), packet);
+  }
 
   switch (arg.getType()) {
   case ArConfigArg::INT:
@@ -695,8 +742,111 @@ AREXPORT bool ArClientArg::addArgTextToPacket(const ArConfigArg &arg,
     isSuccess = false;
     break;
   } // end switch type
+  
+  if (myIsSingleParam && isSuccess) {
+    isSuccess = addListEndToPacket(arg.getParentArg(), packet);
+  }
 
   return isSuccess;
 
 } // end method addArgTextToPacket
+
+
+AREXPORT bool ArClientArg::addAncestorListToPacket
+                               (const std::list<ArConfigArg *> &argList,
+                                ArNetPacket *packet)
+{
+  if (packet == NULL) {
+    return false;
+  }
+  // TODO maybe overwrite 
+   if (myIsSingleParam) {
+    ArLog::log(ArLog::Normal,
+               "ArClientArg::addArgListToPacket() not valid for single param");
+
+    return false;
+  }
+  
+  bool isSuccess = true;
+  std::list<ArConfigArg *> listsToEnd;
+ 
+  for (std::list<ArConfigArg *>::const_iterator iter = argList.begin();
+       iter != argList.end();
+       iter++) {
+    ArConfigArg *curArg = (*iter);
+    if (curArg == NULL) {
+      continue;
+    }
+    if (curArg->isListType()) {
+      packet->strToBuf(ArConfigArg::LIST_BEGIN_TAG);
+      packet->strToBuf(curArg->getName());  
+      
+      listsToEnd.push_front(curArg);
+    }
+    else {
+      addArgTextToPacket(*curArg, packet);
+      break; // This really should be the last one
+    }
+  }
+
+
+  for (std::list<ArConfigArg*>::iterator endIter = listsToEnd.begin();
+       endIter != listsToEnd.end();
+       endIter++) {
+    ArConfigArg *curArg = *endIter;
+    if (curArg == NULL) {
+      return false;
+    }
+
+    packet->strToBuf(ArConfigArg::LIST_END_TAG);
+    packet->strToBuf(curArg->getName());  
+
+  }
+  return true;
+
+} // end method addAncestorListToPacket
+
+
+AREXPORT bool ArClientArg::addListBeginToPacket(ArConfigArg *parentArg,
+                                                ArNetPacket *packet)
+{
+  if (parentArg == NULL) {
+    return true;
+  }
+  if (!parentArg->isListType()) {
+    ArLog::log(ArLog::Normal,
+               "ArClientArg::addListBeginToPacket() parent %s is not a list arg",
+               parentArg->getName());
+    return false;
+  }
+  addListBeginToPacket(parentArg->getParentArg(), packet);
+
+  packet->strToBuf(ArConfigArg::LIST_BEGIN_TAG);
+  packet->strToBuf(parentArg->getName());  
+
+  return true;
+}
+
+
+AREXPORT bool ArClientArg::addListEndToPacket(ArConfigArg *parentArg,
+                                              ArNetPacket *packet)
+{
+  if (parentArg == NULL) {
+    return true;
+  }
+  if (!parentArg->isListType()) {
+    ArLog::log(ArLog::Normal,
+               "ArClientArg::addListBeginToPacket() parent %s is not a list arg",
+               parentArg->getName());
+    return false;
+  }
+
+  packet->strToBuf(ArConfigArg::LIST_END_TAG);
+  packet->strToBuf(parentArg->getName());  
+
+  addListEndToPacket(parentArg->getParentArg(), packet);
+
+  return true;
+
+} // end method addListEndToPacket
 

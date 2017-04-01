@@ -170,8 +170,25 @@ public:
   void remSingleShotDeactivateCallback(ArFunctor *functor)
     { mySingleShotDeactivateCallbacks.remCallback(functor); }
 
+
+  /// Adds a single shot callback for just after the deactivate happens (when the next mode has activated)
+  void addSingleShotPostDeactivateCallback(
+	  ArFunctor *functor, int position = 50) 
+    { mySingleShotPostDeactivateCallbacks.addCallback(functor, position); }
+  /// Removes a single shot callback for just after the deactivate happens (when the next mode has activated)
+  void remSingleShotPostDeactivateCallback(ArFunctor *functor)
+    { mySingleShotPostDeactivateCallbacks.remCallback(functor); }
+
   /// Call that gets our idle mode
   AREXPORT static ArServerModeIdle *getIdleMode(void);
+
+#ifndef SWIG
+  /// Internal call to set the activity time (this is dangerous and
+  /// shouldn't be used)
+  /// @internal
+  void internalSetActivityTime(ArTime time);
+#endif
+
 protected:
   AREXPORT static void modeUserTask(void);
   AREXPORT static void buildModeInfoPacket(ArNetPacket *packet);
@@ -181,7 +198,7 @@ protected:
       If we have an ArRobot instance (myRobot), then robot motion is stopped.
       Activity time is reset, and activate callbacks are called.
   */
-  AREXPORT bool baseActivate(void);
+  AREXPORT bool baseActivate(bool canSelfActivateIfLocked = false);
   /** Deactivates this mode. Deactivation callbacks are called. The next mode to
       be activated is activated, if any. (E.g. the global default mode)
   */
@@ -190,6 +207,7 @@ protected:
   ArCallbackList myActivateCallbacks;
   ArCallbackList myDeactivateCallbacks;
   ArCallbackList mySingleShotDeactivateCallbacks;
+  ArCallbackList mySingleShotPostDeactivateCallbacks;
 
   bool myIsActive;
   ArRobot *myRobot;

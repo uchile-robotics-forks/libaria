@@ -1,8 +1,9 @@
 """
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -23,59 +24,84 @@ Adept MobileRobots for information about a commercial version of ARIA at
 robots@mobilerobots.com or 
 Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 """
+
+from __future__ import division # For correct float division in Python 2
 from AriaPy import *
 import sys
 
 # This Python script connects to the robot and prints out the current
 # Sonar and Laser range readings.
 
-Aria_init()
+chooseWiBox()
+
+Aria.init()
 argparser = ArArgumentParser(sys.argv)
 argparser.loadDefaultArguments()
 robot = ArRobot()
-conn = ArSimpleConnector(argparser)
-
-if not Aria_parseArgs():
-  Aria_logOptions()
-  Aria_exit(1)
-
-sonar = ArSonarDevice()
-robot.addRangeDevice(sonar)
-
-laser = ArSick()
-laser.configureShort(1)
-robot.addRangeDevice(laser)
+conn = ArRobotConnector(argparser, robot)
+laserCon = ArLaserConnector(argparser, robot, conn)
 
 if (not conn.connectRobot(robot)):
-    print "Could not connect to robot, exiting"
-    Aria_exit(1)
+  print 'Error connecting to robot'
+  Aria.logOptions()
+  print 'Could not connect to robot, exiting.'
+  Aria.exit(1)
 
-
-
-
+	
+print 'Connected to robot'
+sonar = ArSonarDevice()
+robot.addRangeDevice(sonar)
 robot.runAsync(1)
-laser.runAsync()
-print "Connecting to laser and waiting 1 sec..."
-laser.blockingConnect()
-ArUtil_sleep(1000)
+
+if not Aria_parseArgs():
+  Aria.logOptions()
+  Aria.exit(1)
+  
+
+print 'Connecting to laser and waiting 1 sec...'
+laser = None
+if(laserCon.connectLasers()):
+  print 'Connected to lasers as configured in parameters'
+  laser = robot.findLaser(1)
+else:
+  print 'Warning: unable to connect to lasers. Continuing anyway!'
+
+	
+ArUtil.sleep(1000)
 robot.lock()
 poses = sonar.getCurrentBufferAsVector()
-print "Sonar readings (%d) (Point coordinates in space):" % (len(poses))
+print 'Sonar readings (%d) (Point coordinates in space):' % (len(poses))
 for p in poses:
-    print "    sonar reading at ", p
+  print '    sonar sensed something at point ', p
+
+print ''
+left = sonar.currentReadingPolar(-135, -45)
+front = sonar.currentReadingPolar(-45, 45)
+right = sonar.currentReadingPolar(45, 135)
+back = sonar.currentReadingPolar(135, -135)
+print 'Closest sonar range: left sector: %d front: %d right: %d back: %d mm' % (left, front, right, back)
+  
 robot.unlock()
 
-print ""
-print ""
+print ''
+print ''
 
-laser.lockDevice()
-readings = laser.getRawReadingsAsVector()
-print "Laser readings (%d):" % (len(readings))
-for r in readings:
-  print "   from laser placed at pose (X:%g, Y:%g) reading point pos is %s, distance is %d" % (r.getSensorX(), r.getSensorY(), r.getPose(), r.getRange())
-laser.unlockDevice()
+if laser:
+  laser.lockDevice()
+  readings = laser.getRawReadingsAsVector()
+  print 'Laser readings (%d):' % (len(readings))
+  for r in readings:
+    print '   from laser placed at pose (X:%.1g, Y:%.1g) on robot, have a sensed point %s, distance is %d' % (r.getSensorX(), r.getSensorY(), r.getPose(), r.getRange())
+  laser.unlockDevice()
 
+print ''
+left = robot.checkRangeDevicesCurrentPolar(-135, -45)
+front = robot.checkRangeDevicesCurrentPolar(-45, 45)
+right = robot.checkRangeDevicesCurrentPolar(45, 135)
+back = robot.checkRangeDevicesCurrentPolar(135, -135)
+print 'Closest sensor range: left sector: %d front: %d right: %d back: %d mm' % (left, front, right, back)
+  
+robot.unlock()
 
-laser.disconnect()
-print "goodbye."
-Aria_exit(0)
+print 'goodbye.'
+Aria.exit(0)

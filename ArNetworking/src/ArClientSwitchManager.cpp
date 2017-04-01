@@ -228,10 +228,14 @@ AREXPORT void ArClientSwitchManager::socketClosed(void)
     char failedStr[1024];
     sprintf(failedStr, "Lost connection to %s at %s, restarting connection.", 
 	    myServerDesc.c_str(), myCentralServer.c_str());
-    myFailedConnectCBList.invoke(failedStr);
 
+    myDataMutex.unlock();
+    myFailedConnectCBList.invoke(failedStr);
   }
-  myDataMutex.unlock();
+  else
+  {
+    myDataMutex.unlock();
+  }
 }
 
 AREXPORT void *ArClientSwitchManager::runThread(void *arg)
@@ -351,8 +355,8 @@ AREXPORT void *ArClientSwitchManager::runThread(void *arg)
 	myClient = NULL;
 	switchState(LOST_CONNECTION);
 	ArLog::log(ArLog::Normal, "%s", failedStr);
-	myFailedConnectCBList.invoke(verboseFailedStr);
 	myDataMutex.unlock();
+	myFailedConnectCBList.invoke(verboseFailedStr);
 	continue;
       }
       
@@ -368,9 +372,8 @@ AREXPORT void *ArClientSwitchManager::runThread(void *arg)
 	char failedStr[1024];
 	sprintf(failedStr, "Connected to %s at %s, but it is inappropriate software, disconnecting.\n\nLikely this robot is pointing at another robot.", 
 		myServerDesc.c_str(), myCentralServer.c_str());
-	myFailedConnectCBList.invoke(failedStr);
-
 	myDataMutex.unlock();
+	myFailedConnectCBList.invoke(failedStr);
 	continue;
       }
 
@@ -422,9 +425,8 @@ AREXPORT void *ArClientSwitchManager::runThread(void *arg)
 	char failedStr[1024];
 	sprintf(failedStr, "Connection to %s at %s took over %.2f minutes, restarting connection.", 
 		myServerDesc.c_str(), myCentralServer.c_str(), myStartedState.secSince() / 60.0);
-	myFailedConnectCBList.invoke(failedStr);
-
 	myDataMutex.unlock();
+	myFailedConnectCBList.invoke(failedStr);
 	continue;
       }
       myDataMutex.unlock();
@@ -454,9 +456,8 @@ AREXPORT void *ArClientSwitchManager::runThread(void *arg)
 	char failedStr[1024];
 	sprintf(failedStr, "Dropping connection to %s at %s since the robot hasn't heard from it in over %g minutes, restarting connection.", 
 		myServerDesc.c_str(), myCentralServer.c_str(), myServerHeartbeatTimeout);
-	myFailedConnectCBList.invoke(failedStr);
-
 	myDataMutex.unlock();
+	myFailedConnectCBList.invoke(failedStr);
 	continue;
       }
       else if 

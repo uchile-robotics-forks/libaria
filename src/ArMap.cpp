@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -457,31 +458,32 @@ For more information about the use of <code>MapInfo</code> metadata, see the dis
  * parameters for a custom map object type.  (2D-Map-Ex2 feature.)  
  * The ArgDesc must appear after its parent type definition and can contain 
  * the following parameters:
- *   - <code>Name=<i>String</i> : The text name of the parameter being defined.  This 
+ * <ul>
+ *   <li> <code>Name=</code><i>String</i> : The text name of the parameter being defined.  This 
  *     must be the first item in the line (after ArgDesc) and must be unique 
  *     for the given parent. (Required)
- *   - <code>Parent=</code><i>String</i> : The text name of the parent map object type (e.g.
+ *   <li> <code>Parent=</code><i>String</i> : The text name of the parent map object type (e.g.
  *     <code>SpecialGoal</code>, <code>RobotHome</code>, ...).  This must be the second item in the line,
  *     immediately following the Name.  (Required)
- *   - <code>Priority=</code><i>Important|Normal|Detailed</i> : The priority of the parameter
+ *   <li> <code>Priority=</code><i>Important|Normal|Detailed</i> : The priority of the parameter
  *     (Required)
- *   - <code>Type=</code><i>int|double|string|bool</i> : The type of the parameter's value 
+ *   <li> <code>Type=</code><i>int|double|string|bool</i> : The type of the parameter's value 
  *     (Required)
- *   - <code>Value=</code><i>String</i> : An optional initial value for the parameter (as 
+ *   <li> <code>Value=</code><i>String</i> : An optional initial value for the parameter (as 
  *     appropriate for the type)
- *   - <code>Min=</code><i>Number</i> : An optional minimum value for the parameter; valid only
+ *   <li> <code>Min=</code><i>Number</i> : An optional minimum value for the parameter; valid only
  *     if Type=int or Type=double
- *   - <code>Max=</code><i>Number</i> : An optional maximum value for the parameter; valid only
+ *   <li> <code>Max=</code><i>Number</i> : An optional maximum value for the parameter; valid only
  *     if Type=int or Type=double
- *   - <code>Display=</code><i>String</i> : An optional display hint that may be used by the 
+ *   <li> <code>Display=</code><i>String</i> : An optional display hint that may be used by the 
  *     client to improve display of the parameter.  See ArConfigArg::setDisplayHint()
  *     for a list of the currently supported display hints.
- * .
+ * </ul>
  * 
  * If a cairn instance with parameters is defined in the map file, then the 
  * parameter values are stored in a special CairnInfo Metadatasection line.
  * (2D-Map-Ex2 feature.)
- * .
+ *
 **/
 
 AREXPORT ArMap::ArMap(const char *baseDirectory,

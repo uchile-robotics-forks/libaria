@@ -906,7 +906,8 @@ AREXPORT void ArServerSimpleConnectionTester::connectionTestStop(void)
 
 bool ArServerSimpleConnectionTester::packetHandler(ArRobotPacket *packet)
 {
-  if (packet->getID() == 0x90)
+  if (packet->getID() == 0x90 || 
+      packet->getID() == ArCommands::SAFETY_STATE_INFO)
   {
     myReceivedPackets++;
     myPacketsThisCycle++;
@@ -921,10 +922,11 @@ void ArServerSimpleConnectionTester::userTask(void)
   if (myFirst)
   {
     myRobot->comInt(ArCommands::ENCODER, 1);
+    myRobot->comInt(ArCommands::SAFETY_STATE_INFO, 1);
     myFirst = false;
     myReceivedPackets = 0;
     myMissedPackets = 0;
-    myMissedMotorPackets = 0;
+    //myMissedMotorPackets = 0;
     myPacketsThisCycle = 0;
     myCyclesSincePacket = 0;
     myPacketReceived.setToNow();
@@ -937,7 +939,8 @@ void ArServerSimpleConnectionTester::userTask(void)
   {
     myMissedPackets++;
     log();
-    myRobot->comInt(ArCommands::ENCODER, 1);
+    myRobot->comInt(ArCommands::ENCODER, 1); 
+    myRobot->comInt(ArCommands::SAFETY_STATE_INFO, 1);
   }
   /*
   if (myPacketsThisCycle > 1)
@@ -950,7 +953,10 @@ void ArServerSimpleConnectionTester::userTask(void)
     myCyclesSincePacket++;
 
   if (myPacketsThisCycle > 0)
+  {
     myRobot->comInt(ArCommands::ENCODER, 1);
+    myRobot->comInt(ArCommands::SAFETY_STATE_INFO, 1);
+  }
 
   if (myLastLog.secSince() >= 15)
   {

@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -34,7 +35,8 @@ Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 
 //#define ARDEBUG_CONFIG
 
-#if (defined(_DEBUG) && defined(ARDEBUG_CONFIG))
+#if (defined(ARDEBUG_CONFIG))
+//#if (defined(_DEBUG) && defined(ARDEBUG_CONFIG))
 #define IFDEBUG(code) {code;}
 #else
 #define IFDEBUG(code)
@@ -46,13 +48,38 @@ const char *ArConfig::CONFIG_VERSION_TAG = "ConfigVersion";
 const char *ArConfig::CURRENT_RESOURCE_VERSION = "1.1";
 const char *ArConfig::RESOURCE_VERSION_TAG = "ConfigResourceVersion";
 
-const char *ArConfig::CATEGORY_ROBOT_INTERFACE = "Robot Interface";
-const char *ArConfig::CATEGORY_ROBOT_OPERATION = "Robot Operation";
-const char *ArConfig::CATEGORY_ROBOT_PHYSICAL  = "Robot Physical";
-const char *ArConfig::CATEGORY_FLEET     = "Enterprise";
-const char *ArConfig::CATEGORY_SECURITY  = "Security";
-const char *ArConfig::CATEGORY_DEBUG     = "Debug";
+AREXPORT const char *ArConfig::CATEGORY_ROBOT_INTERFACE = "Robot Interface";
+AREXPORT const char *ArConfig::CATEGORY_ROBOT_OPERATION = "Robot Operation";
+AREXPORT const char *ArConfig::CATEGORY_ROBOT_PHYSICAL  = "Robot Physical";
+AREXPORT const char *ArConfig::CATEGORY_FLEET     = "Enterprise";
+AREXPORT const char *ArConfig::CATEGORY_SECURITY  = "Security";
+AREXPORT const char *ArConfig::CATEGORY_DEBUG     = "Debug";
 
+AREXPORT const char *ArConfig::toCategoryName(const char *categoryName)
+{
+  if (categoryName == NULL) {
+    return NULL;
+  }
+  // KMC 8/15/13 Obviously this should be improved to be less cut-and-paste
+  // error prone
+  if (ArUtil::strcasecmp(categoryName, CATEGORY_ROBOT_INTERFACE) == 0) {
+    return CATEGORY_ROBOT_INTERFACE;
+  }
+  if (ArUtil::strcasecmp(categoryName, CATEGORY_ROBOT_OPERATION) == 0) {
+    return CATEGORY_ROBOT_OPERATION;
+  }
+  if (ArUtil::strcasecmp(categoryName, CATEGORY_ROBOT_PHYSICAL) == 0) {
+    return CATEGORY_ROBOT_PHYSICAL;
+  }
+  if (ArUtil::strcasecmp(categoryName, CATEGORY_FLEET) == 0) {
+    return CATEGORY_FLEET;
+  }
+  if (ArUtil::strcasecmp(categoryName, CATEGORY_DEBUG) == 0) {
+    return CATEGORY_DEBUG;
+  }
+  return NULL;
+
+} // end method toCategoryName 
 
 /**
    @param baseDirectory a directory to search for files in
@@ -659,6 +686,7 @@ AREXPORT bool  ArConfig::addSection(const char *categoryName,
   }
 
   ArConfigSection *section = findSection(sectionName);
+  std::string origCategoryName;
 
   if ((section != NULL) && (!ArUtil::isStrEmpty(section->getCategoryName()))) 
   {
@@ -686,11 +714,35 @@ AREXPORT bool  ArConfig::addSection(const char *categoryName,
   else {
     ArLog::log(ArLog::Verbose, "%sAssigning existing section '%s' to category '%s'", 
                myLogPrefix.c_str(), sectionName, categoryName);
+  
+    origCategoryName = (section->getCategoryName() != NULL ? 
+                                 section->getCategoryName() : "");
     
     section->setCategoryName(categoryName);
     section->setComment(sectionDescription);
   } 
   translateSection(section);
+
+  // If the section was in a different category, then remove it. 
+  if (!origCategoryName.empty() && 
+      (ArUtil::strcasecmp(origCategoryName, categoryName) != 0))
+  { 
+    std::map<std::string, std::list<std::string> >::iterator origCatIter = myCategoryToSectionsMap.find(origCategoryName);
+    if (origCatIter != myCategoryToSectionsMap.end()) {
+      std::list<std::string> *origSectionList = &(origCatIter->second);
+      if (origSectionList != NULL) {
+        for (std::list<std::string>::iterator remIter = origSectionList->begin();
+             remIter != origSectionList->end();
+             remIter++) {
+          if (ArUtil::strcasecmp(sectionName, *remIter) == 0) {
+            origSectionList->erase(remIter);
+            break;
+          }
+        } // end for each 
+      }
+               
+    }
+  } // end if already in a different category 
 
   // Make sure that the section is not already stored in the category map
   std::list<std::string> *sectionList = NULL;
@@ -893,11 +945,15 @@ AREXPORT bool ArConfig::addParam(const ArConfigArg &arg,
   {
     ArConfigSection *curSection = *sectionIt;
 
+    ArConfigArg *existingParam = NULL;
+    if (!ArUtil::isStrEmpty(arg.getName())) {
+      existingParam = curSection->findParam(arg.getName());
+    }
+
     // if we have an argument of this name but we don't have see if
     // this section is our own, if its not then note we have
     // duplicates
-    if ((strlen(arg.getName()) > 0) && 
-        (curSection->findParam(arg.getName()) != NULL)) 
+    if (existingParam != NULL)  
     {
       if (strcasecmp(curSection->getName(), section->getName()) != 0) {
         ArLog::log(ArLog::Verbose, 
@@ -909,12 +965,14 @@ AREXPORT bool ArConfig::addParam(const ArConfigArg &arg,
         myDuplicateParams = true;
       }
       else {
-        ArLog::log(ArLog::Verbose, 
-                  "%sParameter %s (type %s) already exists in section %s",
+        ArLog::log(((!existingParam->isPlaceholder()) ? ArLog::Normal : ArLog::Verbose), 
+                  "%sParameter %s (type %s) already exists in section %s (placeholder = %i)",
                   myLogPrefix.c_str(),
 		              arg.getName(), 
                   ArConfigArg::toString(arg.getType()),
-                  section->getName());
+                  section->getName(),
+                  existingParam->isPlaceholder());
+        
       }
     }
   } // end for each section
@@ -934,10 +992,11 @@ AREXPORT bool ArConfig::addParam(const ArConfigArg &arg,
   // makes sure it's a list)
   addListNamesToParser(arg);
 
-  // remove any string holders for this param
+  // remove any string and list holders for this param
   section->remStringHolder(arg.getName());
   
-  
+  // KMC 12/8/13 This comment is incorrect.  I believe that we intentionally allow duplicate
+  // names so that multiple objects can reference the same param value. (True?) 
   // we didn't have a parameter with this name so add it
   params->push_back(arg);
 
@@ -1179,7 +1238,7 @@ AREXPORT bool ArConfig::parseListBegin(ArArgumentBuilder *arg,
   ArConfigArg *parentParam = section->findParam(myParsingListNames, true);
 
   myParsingListNames.push_back(arg->getFullString());
-  param = section->findParam(myParsingListNames);
+  param = section->findParam(myParsingListNames, true);
 
   if (param == NULL) {
 
@@ -1250,7 +1309,7 @@ AREXPORT bool ArConfig::parseListEnd(ArArgumentBuilder *arg,
     ArConfigSection *section = findSection(mySection.c_str());
 
     if (section != NULL) {
-      param = section->findParam(myParsingListNames);   
+      param = section->findParam(myParsingListNames, true);   
     }
     if (param != NULL) {
       param->setValueSet();
@@ -1557,6 +1616,7 @@ AREXPORT bool ArConfig::parseUnknown(ArArgumentBuilder *arg,
     }
     return true;
   }
+
   if (mySaveUnknown && mySectionsToParse == NULL && 
       myPermissionSaveUnknown)
   {
@@ -1592,6 +1652,8 @@ AREXPORT bool ArConfig::parseUnknown(ArArgumentBuilder *arg,
           return false;
         }
         parentParam->addArg(ArConfigArg(arg->getArg(0), ""));
+  
+
 
       } // end else list member
     }
@@ -1643,11 +1705,19 @@ AREXPORT bool ArConfig::parseUnknown(ArArgumentBuilder *arg,
   }
   else
   {
+    IFDEBUG(ArLog::log(ArLog::Normal,
+                       "ArConfig::parseUnknown() mySaveUnknown = %i, myPermissionSaveUnknown = %i mySectionsToParse %s NULL",
+                       mySaveUnknown,
+                       myPermissionSaveUnknown,
+                       ((mySectionsToParse == NULL) ? "==" : "!=")));
+
     ArLog::log(ArLog::Verbose, "%sUnknown '%s' in section '%s', ignoring it", 
 	             myLogPrefix.c_str(), arg->getFullString(), mySection.c_str());
   }
   return true;
-}
+
+} // end method parseUnknown
+
 /**
    @param fileName the file to load
 
@@ -1681,7 +1751,7 @@ AREXPORT bool ArConfig::parseFile(const char *fileName,
                                   std::list<std::string> *sectionsToParse,
                                   ArPriority::Priority highestPriority,
                                   ArPriority::Priority lowestPriority,
-				  ArConfigArg::RestartLevel *restartLevelNeeded)
+                                  ArConfigArg::RestartLevel *restartLevelNeeded)
 {
   bool ret = true;
 
@@ -1744,6 +1814,7 @@ AREXPORT bool ArConfig::parseFile(const char *fileName,
   if (ret || continueOnErrors)
     ret = callProcessFileCallBacks(continueOnErrors, errorBuffer,
 					  errorBufferLen) && ret;
+  
   // copy our error if we have one and haven't copied in yet
   // set our pointers so we don't copy anymore into/over it
   if (errorBuffer != NULL && errorBuffer[0] != '\0')
@@ -1891,6 +1962,129 @@ AREXPORT bool ArConfig::writeFile(const char *fileName,
   fclose(file);
   return true;
 }
+  
+
+AREXPORT bool ArConfig::parseText(const std::list<std::string> &configLines,
+                                  bool continueOnErrors,
+                                  bool *parseOk,
+                                  bool *processOk,
+                                  char *errorBuffer,
+                                  size_t errorBufferLen,
+                                  std::list<std::string> *sectionsToParse,
+                                  ArPriority::Priority highestPriority,
+                                  ArPriority::Priority lowestPriority,
+                                  ArConfigArg::RestartLevel *restartLevelNeeded)
+{
+  if ((errorBuffer != NULL) && (errorBufferLen > 0)) {
+    errorBuffer[0] = '\0';
+  }
+ 
+  if (parseOk != NULL) {
+    *parseOk = true;
+  }
+  if (processOk != NULL) {
+    *processOk = true;
+  }
+
+
+  bool ret = true;
+  
+  // Should be null, but just in case...
+  if (mySectionsToParse != NULL)
+  {
+    delete mySectionsToParse; 
+    mySectionsToParse = NULL;
+  }
+  
+
+  copySectionsToParse(sectionsToParse);
+  myHighestPriorityToParse = highestPriority;
+  myLowestPriorityToParse  = lowestPriority;
+  myRestartLevelNeeded = ArConfigArg::NO_RESTART;
+  
+
+  if (restartLevelNeeded != NULL)
+    myCheckingForRestartLevel = true;
+  else
+    myCheckingForRestartLevel = false;
+
+  // KMC 8/9/13 I think that the original ARCL command handler acted 
+  // differently. Maybe stopped on first parse error, but allowed 
+  // the callbacks to continue on errors.  TODO Why??!
+
+  char lineBuf[10000];
+  size_t lineBufLen = sizeof(lineBuf);
+  
+  for (std::list<std::string>::const_iterator iter = configLines.begin();
+       iter != configLines.end();
+       iter++) {
+    const std::string &curLine = *iter;
+
+    if (curLine.empty()) {
+      continue;
+    }
+    snprintf(lineBuf, lineBufLen,
+             curLine.c_str());
+
+    if (!myParser.parseLine(lineBuf, errorBuffer, errorBufferLen))
+    {
+      ret = false;
+      if (parseOk != NULL) {
+        *parseOk = false;
+      }
+      if (!continueOnErrors)
+        break;
+    }
+  } // end for each text line
+  
+  // set our pointers so we don't copy anymore into/over it
+  if (errorBuffer != NULL && errorBuffer[0] != '\0')
+  {
+    errorBuffer = NULL;
+    errorBufferLen = 0;
+  }
+  //printf("parser %s\n", ArUtil::convertBool(ret));
+  
+  // if we haven't failed (or we continue on errors) then call the
+  // process file callbacks
+  if (ret || continueOnErrors) {
+    if (!callProcessFileCallBacks(continueOnErrors, 
+                                  errorBuffer,
+					                        errorBufferLen)) {
+      ret = false;
+      if (processOk != NULL) {
+        *processOk = false;
+      }
+    } 
+  }
+ 
+  // copy our error if we have one and haven't copied in yet
+  // set our pointers so we don't copy anymore into/over it
+  if (errorBuffer != NULL && errorBuffer[0] != '\0')
+  {
+    errorBuffer = NULL;
+    errorBufferLen = 0;
+  }
+
+  if (restartLevelNeeded != NULL)
+    *restartLevelNeeded = myRestartLevelNeeded;
+
+  // Done with the temp parsing info, so delete it...
+  delete mySectionsToParse; 
+  mySectionsToParse = NULL;
+
+  myHighestPriorityToParse = ArPriority::FIRST_PRIORITY;
+  myLowestPriorityToParse  = ArPriority::LAST_PRIORITY;
+  myRestartLevelNeeded = ArConfigArg::NO_RESTART;
+  myCheckingForRestartLevel = true;
+
+  ArLog::log(myProcessFileCallbacksLogLevel,
+      	     "Done parsing text list (ret %s)", 
+	           ArUtil::convertBool(ret));
+
+  return ret;
+
+} // end method parseText 
 
 // -----------------------------------------------------------------------------
 
@@ -2298,12 +2492,12 @@ AREXPORT void ArConfig::writeSection(ArConfigSection *section,
     if (param->getType() == ArConfigArg::SEPARATOR) {
       continue;
     }
-
     if (alreadyWritten != NULL && 
 	      param->getType() != ArConfigArg::DESCRIPTION_HOLDER &&
-	      alreadyWritten->find(param->getName()) != alreadyWritten->end())
+	      alreadyWritten->find(param->getName()) != alreadyWritten->end()) {
       continue;
-
+      
+    }
     else if (alreadyWritten != NULL && 
 	           param->getType() != ArConfigArg::DESCRIPTION_HOLDER)
     {
@@ -2941,7 +3135,7 @@ void ArConfig::copySectionsToParse(std::list<std::string> *from)
   }
 } // end method copySectionsToParse
 
-void ArConfig::addSectionNotToParse(const char *section)
+AREXPORT void ArConfig::addSectionNotToParse(const char *section)
 {
   ArLog::log(ArLog::Normal, "%sWill not parse section %s", 
 	     myLogPrefix.c_str(), section);
@@ -2950,7 +3144,7 @@ void ArConfig::addSectionNotToParse(const char *section)
 
 
 
-void ArConfig::remSectionNotToParse(const char *section)
+AREXPORT void ArConfig::remSectionNotToParse(const char *section)
 {
   ArLog::log(ArLog::Normal, "%sWill not not parse section %s", 
 	     myLogPrefix.c_str(), section);
@@ -3075,7 +3269,7 @@ AREXPORT void ArConfig::resetRestartLevelNeeded(void)
 }
 
 
-void ArConfig::addListNamesToParser(const ArConfigArg &parent)
+AREXPORT void ArConfig::addListNamesToParser(const ArConfigArg &parent)
 {
   if (parent.getType() != ArConfigArg::LIST)
     return;
@@ -3457,12 +3651,12 @@ AREXPORT void ArConfigSection::setQuiet(bool isQuiet)
 }
 
 
-void ArConfigSection::setName(const char *name) 
+AREXPORT void ArConfigSection::setName(const char *name) 
 { 
   myName = ((name != NULL) ? name : "");
 }
  
-void ArConfigSection::setComment(const char *comment) 
+AREXPORT void ArConfigSection::setComment(const char *comment) 
 { 
   myComment = ((comment != NULL) ? comment : ""); 
 }

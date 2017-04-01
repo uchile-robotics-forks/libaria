@@ -101,6 +101,7 @@ AREXPORT ArServerMode::ArServerMode(ArRobot *robot, ArServerBase *server,
   activityMutexName += "::myActivityTimeMutex";
   myActivityTimeMutex.setLogName(activityMutexName.c_str());
   myVerboseLogLevel = ArLog::Verbose;
+  //myVerboseLogLevel = ArLog::Normal;
   myRobot = robot;
   myServer = server;
   myIsActive = false;
@@ -125,6 +126,12 @@ AREXPORT ArServerMode::ArServerMode(ArRobot *robot, ArServerBase *server,
   cbListName += "::mySingleShotDeactivateCallbacks";
   mySingleShotDeactivateCallbacks.setName(cbListName.c_str());
   mySingleShotDeactivateCallbacks.setSingleShot(true);
+
+  cbListName = "ArServerMode::";
+  cbListName += myName;
+  cbListName += "::mySingleShotPostDeactivateCallbacks";
+  mySingleShotPostDeactivateCallbacks.setName(cbListName.c_str());
+  mySingleShotPostDeactivateCallbacks.setSingleShot(true);
 
   if (!ourUserTaskAdded)
   {
@@ -174,7 +181,21 @@ AREXPORT ArServerMode::ArServerMode(ArRobot *robot, ArServerBase *server,
 
 AREXPORT ArServerMode::~ArServerMode()
 {
-
+  /* Clean Up?  Maybe something like the following? Not essential 
+    since ArServerMode objects typically live for the lifetime of the process.
+  ourModes.remove(this);
+  if(ourModes.size() == 0) 
+  {
+    // This was the laser ArServerMode object.
+    myRobot->remUserTask(&ourUserTaskCB);
+    myServer->remData("getServerDataList");
+    myServer->remData("modeBusyChanged");
+    ourUSerTaskAdded = false;
+    delete ourIdleMode;
+    ourIdleMode = NULL;
+    ourIdleModeCreated = false;
+  }
+  */
 }
 
 AREXPORT void ArServerMode::lockMode(bool willUnlockIfRequested)
@@ -186,7 +207,7 @@ AREXPORT void ArServerMode::lockMode(bool willUnlockIfRequested)
   }
   ourActiveModeLocked = true;
   ourActiveModeWillUnlockIfRequested = willUnlockIfRequested;
-  ArLog::log(myVerboseLogLevel, "Locked into %s mode, will unlock %s", 
+  ArLog::log(myVerboseLogLevel, "ArServerMode: Locked into %s mode, will unlock %s", 
 	     getName(), ArUtil::convertBool(willUnlockIfRequested));
   checkBroadcastModeInfoPacket();
 }
@@ -200,8 +221,56 @@ AREXPORT void ArServerMode::unlockMode(void)
   }
   ourActiveModeLocked = false;
   ourActiveModeWillUnlockIfRequested = false;
-  ArLog::log(myVerboseLogLevel, "Unlocked from %s mode", getName());
+  ArLog::log(myVerboseLogLevel, "ArServerMode: Unlocked from %s mode", getName());
   checkBroadcastModeInfoPacket();
+
+  std::list<ArServerMode *>::iterator it;
+  if (ourNextActiveMode == NULL)
+  {
+    ArLog::log(myVerboseLogLevel, "ArServerMode: UnlockModeCheck(%s): No next active mode",
+	       getName());
+
+    // walk through until one of these is ready
+    while ((it = ourRequestedActivateModes.begin()) != 
+	   ourRequestedActivateModes.end())
+    {
+      std::string name;
+      ArServerMode *serverMode = NULL;
+      serverMode = (*it);
+      name = serverMode->getName();
+      ArLog::log(ArLog::Normal,"UnlockModeCheck(%s): Trying to activate %s", 
+		 getName(), name.c_str());
+      
+      ourRequestedActivateModes.pop_front();
+
+      serverMode->activate();
+
+      if (ourActiveMode == ourIdleMode)
+      {
+	ArLog::log(ArLog::Normal, "UnlockModeCheck(%s): Idle mode activated instead, so leaving the requestedActivateModes alone", getName());
+	return;
+      }
+      
+      if (ourActiveMode != this && ourActiveMode != NULL)
+      {
+	ArLog::log(ArLog::Normal, "UnlockModeCheck(%s): Activated another mode  (%s) assuming it takes care of the rest", getName(), 
+		   ourActiveMode->getName());
+	return;
+      }
+    } // end while modes to activate
+    ArLog::log(ArLog::Normal, 
+	       "UnlockModeCheck(%s): No other mode activated",
+	       getName());
+  }
+  else
+  {
+    ArLog::log(ArLog::Normal, "UnlockModeCheck: Our next active mode %s, removing it from requested activate modes", ourNextActiveMode->getName());
+    ourRequestedActivateModes.remove(ourNextActiveMode);
+    return;
+  }
+  ArLog::log(ArLog::Normal,
+             "UnlockModeCheck: Nothing else wanted to activate after %s unlocked", getName());
+
 }
 
 /**
@@ -251,14 +320,15 @@ AREXPORT bool ArServerMode::isAutoResumeAfterInterrupt()
    activate() method.
  **/
 
-AREXPORT bool ArServerMode::baseActivate(void)
+AREXPORT bool ArServerMode::baseActivate(bool canSelfActivateIfLocked)
 {
 
   // if we're locked then return false so nothing else activates
-  if (ourActiveMode != NULL && ourActiveMode != this && ourActiveModeLocked)
+  if (ourActiveMode != NULL && ourActiveModeLocked && 
+      (ourActiveMode != this || !canSelfActivateIfLocked))
   {
-    ArLog::log(myVerboseLogLevel, "Could not switch to %s mode because of lock.", 
-	       getName());
+    ArLog::log(myVerboseLogLevel, "ArServerMode: Could not switch to %s mode because of lock (%s).", 
+	       getName(), ArUtil::convertBool(canSelfActivateIfLocked));
  
     // request our active mode to unlock
     //
@@ -271,11 +341,11 @@ AREXPORT bool ArServerMode::baseActivate(void)
     // go-to-goal mode attempts to activate.)
     // ourActiveMode->requestUnlock();
 
-    ArLog::log(myVerboseLogLevel, "Removing this (%s) from requested activate modes",
+    ArLog::log(myVerboseLogLevel, "ArServerMode: Removing this (%s) from requested activate modes",
                getName());
 
     ourRequestedActivateModes.remove(this);
-    ArLog::log(myVerboseLogLevel, "Mode %s wants to be activated, adding to requested activate modes.", getName());
+    ArLog::log(myVerboseLogLevel, "ArServerMode: Mode %s wants to be activated, adding to requested activate modes.", getName());
 
     ourRequestedActivateModes.push_front(this);
 
@@ -289,27 +359,36 @@ AREXPORT bool ArServerMode::baseActivate(void)
   {
     if (ourActiveMode == ourIdleMode)
     {
+      /* MPL this is the old behavior that caused by 13711 ... now we
+       * add it toe the queue isntead
+
       ArLog::log(myVerboseLogLevel, 
 		 "Since idle already active didn't set nextActiveMode when mode %s tried to activate, just returning", this->getName());      
+      return false;
+      */
+      ArLog::log(myVerboseLogLevel, 
+		 "ArServerMode: Since idle already active didn't set nextActiveMode when mode %s tried to activate, just adding to requested activate modes", this->getName());      
+      ourRequestedActivateModes.remove(this);
+      ourRequestedActivateModes.push_front(this);
       return false;
     }
     ourNextActiveMode = ourIdleMode;
     if (ourActiveMode != NULL)
       ArLog::log(myVerboseLogLevel, 
-		 "Setting nextActiveMode explicitly to idle mode from mode %s trying to activate while %s is active", this->getName(), ourActiveMode->getName());
+		 "ArServerMode: Setting nextActiveMode explicitly to idle mode from mode %s trying to activate while %s is active", this->getName(), ourActiveMode->getName());
     else
       ArLog::log(myVerboseLogLevel, 
-		 "Setting nextActiveMode explicitly to idle mode from mode %s trying to activate while no mode is active", this->getName());
+		 "ArServerMode: Setting nextActiveMode explicitly to idle mode from mode %s trying to activate while no mode is active", this->getName());
 		       
     if (ourActiveMode != NULL && ourActiveMode != ourIdleMode)
     {
       ourIdleMode->setModeInterrupted(ourActiveMode);
       ourActiveMode->deactivate();
     }
-    ArLog::log(myVerboseLogLevel, "Removing this (%s) from requested activate modes",
+    ArLog::log(myVerboseLogLevel, "ArServerMode: Removing this (%s) from requested activate modes",
                getName());
     ourRequestedActivateModes.remove(this);
-    ArLog::log(myVerboseLogLevel, "Mode %s wants to be activated, denying for now because of idle, but adding to requested activate modes", getName());
+    ArLog::log(myVerboseLogLevel, "ArServerMode: Mode %s wants to be activated, denying for now because of idle, but adding to requested activate modes", getName());
     ourRequestedActivateModes.push_front(this);
     ourIdleMode->activate();
     return false;
@@ -317,10 +396,10 @@ AREXPORT bool ArServerMode::baseActivate(void)
 
   ourNextActiveMode = this;
   if (ourActiveMode != NULL)
-    ArLog::log(myVerboseLogLevel, "Setting nextActiveMode to mode %s (ourActiveMode %s)",
+    ArLog::log(myVerboseLogLevel, "ArServerMode: Setting nextActiveMode to mode %s (ourActiveMode %s)",
 	       ourNextActiveMode->getName(), ourActiveMode->getName());
   else
-    ArLog::log(myVerboseLogLevel, "Setting nextActiveMode to mode %s (ourActiveMode NULL)",
+    ArLog::log(myVerboseLogLevel, "ArServerMode: Setting nextActiveMode to mode %s (ourActiveMode NULL)",
 	       ourNextActiveMode->getName());
   if (ourActiveMode != NULL)
     ourActiveMode->deactivate();
@@ -340,7 +419,7 @@ AREXPORT bool ArServerMode::baseActivate(void)
   ourActiveMode = this;
   ourNextActiveMode = NULL;
 
-  ArLog::log(myVerboseLogLevel, "Setting nextActiveMode to NULL");
+  ArLog::log(myVerboseLogLevel, "ArServerMode: Setting nextActiveMode to NULL");
   if (myRobot != NULL)
   {
     myRobot->stop();
@@ -349,7 +428,7 @@ AREXPORT bool ArServerMode::baseActivate(void)
   /// Call our activate callbacks
   myActivateCallbacks.invoke();
   /// Set the activity time to now, but do NOT set the flag, since that flag is used to determine if a particular mode has used it or not
-  ArLog::log(myVerboseLogLevel, "Activated %s mode", getName());
+  ArLog::log(myVerboseLogLevel, "ArServerMode: Activated %s mode", getName());
   checkBroadcastModeInfoPacket();
   return true;
 }
@@ -366,12 +445,15 @@ AREXPORT void ArServerMode::baseDeactivate(void)
        it != ourDefaultModes.end();
        it++)
   {
-    ArLog::log(myVerboseLogLevel, "defaults are %s mode", (*it)->getName());
+    ArLog::log(myVerboseLogLevel, "ArServerMode: defaults are %s mode", (*it)->getName());
   }
   */
   // if we're the active mode, we're deactivating, and we're locked, then unlock
   if (ourActiveMode != NULL && ourActiveMode == this && ourActiveModeLocked)
     unlockMode();
+  // if the unlock mode caused the deactivation of this mode to happen just return
+  if (!myIsActive || ourActiveMode != this)
+    return;
   /*
     if (myRobot != NULL)
     myRobot->remUserTask(&myUserTaskCB);
@@ -385,11 +467,11 @@ AREXPORT void ArServerMode::baseDeactivate(void)
   myDeactivateCallbacks.invoke();
   mySingleShotDeactivateCallbacks.invoke();
   
-  ArLog::log(myVerboseLogLevel, "Deactivated %s mode", getName());
+  ArLog::log(myVerboseLogLevel, "ArServerMode: Deactivated %s mode", getName());
 
   if (ourNextActiveMode == NULL)
   {
-    ArLog::log(myVerboseLogLevel, "No next active mode %s");
+    ArLog::log(myVerboseLogLevel, "ArServerMode: No next active mode %s", getName());
 
     // walk through until one of these is ready
     while ((it = ourRequestedActivateModes.begin()) != 
@@ -397,23 +479,24 @@ AREXPORT void ArServerMode::baseDeactivate(void)
     {
       std::string name;
       name = (*it)->getName();
-      ArLog::log(myVerboseLogLevel,"Trying to activate %s", name.c_str());
+      ArLog::log(myVerboseLogLevel, "ArServerMode: Trying to activate %s", name.c_str());
       
       (*it)->activate();
 
       if (ourActiveMode == ourIdleMode)
       {
-	ArLog::log(myVerboseLogLevel, "Idle mode activated instead, so leaving the requestedActivateModes alone");
+	ArLog::log(myVerboseLogLevel, "ArServerMode: Idle mode activated instead, so leaving the requestedActivateModes alone");
+	mySingleShotPostDeactivateCallbacks.invoke();
 	return;
       }
       
-      ArLog::log(myVerboseLogLevel, "Popping front of requested activate modes (%s)");
+      ArLog::log(myVerboseLogLevel, "ArServerMode: Popping front of requested activate modes (%s)", getName());
       
       ourRequestedActivateModes.pop_front();
       
       if (ourActiveMode != NULL)
       {
-	ArLog::log(myVerboseLogLevel, "and did, clearing requested activate modes (size = %i)",
+	ArLog::log(myVerboseLogLevel, "ArServerMode: and did, clearing requested activate modes (size = %i)",
                    ourRequestedActivateModes.size());
 	// now clear out the old modes so that we don't wind up
 	// stacking too much. First, notify them that they will not be activated.
@@ -431,12 +514,13 @@ AREXPORT void ArServerMode::baseDeactivate(void)
 	ourRequestedActivateModes.clear();
 	
         ArLog::log(myVerboseLogLevel,
-                   "Deactivate %s mode returns (1)", getName());
+                   "ArServerMode: Deactivate %s mode returns (1)", getName());
+	mySingleShotPostDeactivateCallbacks.invoke();
 	return;
       }
     } // end while modes to activate
 
-    ArLog::log(myVerboseLogLevel, "Deactivate did not activate any modes, clearing requested activate modes (size = %i)", ourRequestedActivateModes.size());
+    ArLog::log(myVerboseLogLevel, "ArServerMode: Deactivate did not activate any modes, clearing requested activate modes (size = %i)", ourRequestedActivateModes.size());
     
     // now clear out the old modes so that we don't wind up stacking
     // too much (should be empty anyways here, just make sure.  (Same logic
@@ -461,18 +545,20 @@ AREXPORT void ArServerMode::baseDeactivate(void)
       {
 	//printf("and did\n");
         ArLog::log(myVerboseLogLevel,
-                   "Deactivate %s mode returns (2)", getName());
+                   "ArServerMode: Deactivate %s mode returns (2)", getName());
+	mySingleShotPostDeactivateCallbacks.invoke();
 	return;
       }
     }
   }
   else
   {
-    ArLog::log(myVerboseLogLevel, "Our next active mode %s, removing it from requested activate modes", ourNextActiveMode->getName());
+    ArLog::log(myVerboseLogLevel, "ArServerMode: Our next active mode %s, removing it from requested activate modes", ourNextActiveMode->getName());
     ourRequestedActivateModes.remove(ourNextActiveMode);
   }
   ArLog::log(myVerboseLogLevel,
-             "Deactivate %s mode returns (3)", getName());
+             "ArServerMode: Deactivate %s mode returns (3)", getName());
+  mySingleShotPostDeactivateCallbacks.invoke();
   
 }
 
@@ -509,6 +595,15 @@ AREXPORT void ArServerMode::setActivityTimeToNow(void)
   myHasSetActivityTime = true; 
   mySetActivityThisCycle = true;
   myActivityTime.setToNow(); 
+  myActivityTimeMutex.unlock();
+}
+
+void ArServerMode::internalSetActivityTime(ArTime time)     
+{ 
+  myActivityTimeMutex.lock();
+  myHasSetActivityTime = true; 
+  mySetActivityThisCycle = false;
+  myActivityTime = time;
   myActivityTimeMutex.unlock();
 }
 

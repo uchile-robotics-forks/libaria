@@ -80,7 +80,7 @@ AREXPORT ArServerModeRatioDrive::ArServerModeRatioDrive(
   {
     addModeData("ratioDrive", "drives the robot as with a joystick",
 		&myServerRatioDriveCB,
-		"double: transRatio; double: rotRatio; double: throttleRatio ",
+		"double: transRatio (0,100); double: rotRatio (0,100); double: throttleRatio (0,100); [double: lateralRatio (0,100)] ",
 		"none", "Movement", "RETURN_NONE");
     myServer->addData("setSafeDrive", 
 		      "sets whether we drive the robot safely or not",
@@ -411,13 +411,17 @@ AREXPORT void ArServerModeRatioDrive::userTask(void)
   // this mode
   myRobot->forceTryingToMove();
 
-  bool moving = (fabs(myRobot->getVel()) > 1 || 
-		 fabs(myRobot->getRotVel()) > 1 || 
-		 fabs(myRobot->getLatVel()) > 1);
+  // MPL 2014_04_17 centralizing all the places stopped is calculated
+  //bool moving = (fabs(myRobot->getVel()) > 1 || 
+  //		 fabs(myRobot->getRotVel()) > 1 || 
+  //		 fabs(myRobot->getLatVel()) > 1);
+
+  bool moving = !myRobot->isStopped();
 
   bool wantToMove;
-  if ((myTransRatio < .1 && myRotRatio < .1 && myLatRatio < .1) ||
-      myThrottleRatio < .1)
+  if ((fabs(myTransRatio) < .0000001 && fabs(myRotRatio) < .000001 && 
+       fabs(myLatRatio) < .0000001) ||
+      myThrottleRatio < .000001)
     wantToMove = false;
   else
     wantToMove = true;
@@ -439,6 +443,7 @@ AREXPORT void ArServerModeRatioDrive::userTask(void)
   bool timedOut = false;
   // if we want to move, and there is a timeout, and the activity time is
   // greater than the timeout, then stop the robot
+  
   if (wantToMove &&
       myTimeout > .0000001 && 
       myLastCommand.mSecSince()/1000.0 >= myTimeout)
@@ -476,9 +481,11 @@ AREXPORT void ArServerModeRatioDrive::userTask(void)
     // not and more values it means a stall
     else if (myRobot->getStallValue())
       myStatus = "Bumped";
-    else if (ArMath::fabs(myRobot->getVel()) < 2 && 
-	     ArMath::fabs(myRobot->getRotVel()) < 1 && 
-	     (!myRobot->hasLatVel() || ArMath::fabs(myRobot->getLatVel()) < 2))
+    // MPL 2014_04_17 centralizing all the places stopped is calculated
+    //else if (ArMath::fabs(myRobot->getVel()) < 2 && 
+    //ArMath::fabs(myRobot->getRotVel()) < 1 && 
+    //(!myRobot->hasLatVel() || ArMath::fabs(myRobot->getLatVel()) < 2))
+    else if (myRobot->isStopped())
       myStatus = "Stopped";
     else
       myStatus = "Driving";

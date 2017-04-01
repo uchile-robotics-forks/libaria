@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -156,6 +157,7 @@ public:
   AREXPORT void zoomIn(void);
   AREXPORT void zoomOut(void);
   AREXPORT void exercise(void);
+  AREXPORT void toggleAutoFocus();
   AREXPORT void sony(void);
   AREXPORT void canon(void);
   AREXPORT void dpptu(void);
@@ -171,6 +173,8 @@ public:
   AREXPORT void com2(void);
   AREXPORT void com3(void);
   AREXPORT void com4(void);
+  AREXPORT void usb0(void);
+  AREXPORT void usb9(void);
   AREXPORT void aux1(void);
   AREXPORT void aux2(void);
 protected:
@@ -235,10 +239,14 @@ protected:
   ArFunctorC<ArModeCamera> myCom2CB;
   ArFunctorC<ArModeCamera> myCom3CB;
   ArFunctorC<ArModeCamera> myCom4CB;
+  ArFunctorC<ArModeCamera> myUSBCom0CB;
+  ArFunctorC<ArModeCamera> myUSBCom9CB;
   ArFunctorC<ArModeCamera> myAux1CB;
   ArFunctorC<ArModeCamera> myAux2CB;
   const int myPanAmount;
   const int myTiltAmount;
+  bool myAutoFocusOn;
+  ArFunctorC<ArModeCamera> myToggleAutoFocusCB;
 };
 
 /// Mode for displaying the sonar
@@ -504,6 +512,38 @@ protected:
   ArFunctorC<ArModeConfig> myGotConfigPacketCB;
 
   void gotConfigPacket();
+};
+
+
+
+/// Mode for displaying status and diagnostic info
+class ArModeRobotStatus : public ArMode
+{
+public:
+  AREXPORT ArModeRobotStatus(ArRobot *robot, const char *name, char key, char key2);
+  AREXPORT virtual void activate();
+  AREXPORT virtual void deactivate();
+  AREXPORT virtual void help();
+  AREXPORT virtual void userTask();
+  
+protected:
+  ArRobot *myRobot;
+  ArRetFunctor1C<bool, ArModeRobotStatus, ArRobotPacket*> myDebugMessageCB;
+  ArRetFunctor1C<bool, ArModeRobotStatus, ArRobotPacket*> mySafetyStateCB;
+  ArRetFunctor1C<bool, ArModeRobotStatus, ArRobotPacket*> mySafetyWarningCB;
+
+  void printFlags();
+  void printFlagsHeader();
+
+  std::string byte_as_bitstring(unsigned char byte);
+  std::string int16_as_bitstring(ArTypes::Byte2 n);
+  std::string int32_as_bitstring(ArTypes::Byte4 n);
+
+  bool handleDebugMessage(ArRobotPacket *p);
+  bool handleSafetyStatePacket(ArRobotPacket *p);
+  const char *safetyStateName(int state);
+  bool handleSafetyWarningPacket(ArRobotPacket *p);
+
 };
 
 

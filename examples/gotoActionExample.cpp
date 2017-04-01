@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -41,11 +42,36 @@ int main(int argc, char **argv)
   Aria::init();
   ArArgumentParser parser(&argc, argv);
   parser.loadDefaultArguments();
-  ArSimpleConnector simpleConnector(&parser);
   ArRobot robot;
-  ArSonarDevice sonar;
   ArAnalogGyro gyro(&robot);
+  ArSonarDevice sonar;
+  ArRobotConnector robotConnector(&parser, &robot);
+  ArLaserConnector laserConnector(&parser, &robot, &robotConnector);
+
+
+  // Connect to the robot, get some initial data from it such as type and name,
+  // and then load parameter files for this robot.
+  if(!robotConnector.connectRobot())
+  {
+    ArLog::log(ArLog::Terse, "gotoActionExample: Could not connect to the robot.");
+    if(parser.checkHelpAndWarnUnparsed())
+    {
+        // -help not given
+        Aria::logOptions();
+        Aria::exit(1);
+    }
+  }
+
+  if (!Aria::parseArgs() || !parser.checkHelpAndWarnUnparsed())
+  {
+    Aria::logOptions();
+    Aria::exit(1);
+  }
+
+  ArLog::log(ArLog::Normal, "gotoActionExample: Connected to robot.");
+
   robot.addRangeDevice(&sonar);
+  robot.runAsync(true);
 
   // Make a key handler, so that escape will shut down the program
   // cleanly
@@ -70,22 +96,6 @@ int main(int argc, char **argv)
   ArActionStop stopAction("stop");
   robot.addAction(&stopAction, 40);
 
-  // Parse all command line arguments
-  if (!Aria::parseArgs() || !parser.checkHelpAndWarnUnparsed())
-  {    
-    Aria::logOptions();
-    Aria::exit(1);
-    return 1;
-  }
-  
-  // Connect to the robot
-  if (!simpleConnector.connectRobot(&robot))
-  {
-    printf("Could not connect to robot... exiting\n");
-    Aria::exit(1);
-    return 1;
-  }
-  robot.runAsync(true);
 
   // turn on the motors, turn off amigobot sounds
   robot.enableMotors();

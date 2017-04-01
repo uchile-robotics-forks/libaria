@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -53,6 +54,16 @@ public:
    * false if an error occurred
   **/
   virtual bool getExitErrorDesc(char *buf, int bufLen) = 0;
+
+  /// Returns a textual description of the error source intended for a user (it will be prefixed by something stating the action taking place)
+  /**
+   * @param buf a char array in which the method puts the output user 
+   * error description 
+   * @param bufLen the int number of char's in the array
+   * @return bool true if the description was successfully written;
+   * false if an error occurred
+  **/
+  virtual bool getExitErrorUserDesc(char *buf, int bufLen) = 0;
 
   /// Returns the error code used for the exit call
   /**

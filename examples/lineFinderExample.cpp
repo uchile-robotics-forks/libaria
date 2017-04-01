@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -38,28 +39,61 @@ Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 int main(int argc, char **argv)
 {
   Aria::init();
-
-  ArSimpleConnector connector(&argc, argv);
+  ArArgumentParser parser(&argc, argv);
+  parser.loadDefaultArguments();
   ArRobot robot;
-  ArSick sick;
+  ArRobotConnector robotConnector(&parser, &robot);
+  ArLaserConnector laserConnector(&parser, &robot, &robotConnector);
 
-  if (!Aria::parseArgs() || argc > 1)
+  if(!robotConnector.connectRobot())
+  {
+    ArLog::log(ArLog::Terse, "lineFinderExample: Could not connect to the robot.");
+    if(parser.checkHelpAndWarnUnparsed())
+    {
+        // -help not given
+        Aria::logOptions();
+        Aria::exit(1);
+    }
+  }
+
+  if (!Aria::parseArgs() || !parser.checkHelpAndWarnUnparsed())
   {
     Aria::logOptions();
-    Aria::exit(1); // exit program with error code 1
-    return 1;
+    Aria::exit(1);
   }
-  
+
+  ArLog::log(ArLog::Normal, "lineFinderExample: Connected to robot.");
+
+  robot.runAsync(true);
+
+  // Connect to laser(s) as defined in parameter files.
+  // (Some flags are available as arguments to connectLasers() to control error behavior and to control which lasers are put in the list of lasers stored by ArRobot. See docs for details.)
+  if(!laserConnector.connectLasers())
+  {
+    ArLog::log(ArLog::Terse, "Could not connect to configured lasers. Exiting.");
+    Aria::exit(3);
+    return 3;
+  }
+
+  ArLog::log(ArLog::Normal, "lineFinderExample: Connected to laser");
+
   ArKeyHandler keyHandler;
   Aria::setKeyHandler(&keyHandler);
   robot.attachKeyHandler(&keyHandler);
 
 
-  robot.addRangeDevice(&sick);
-
   // Create the ArLineFinder object. Set it to log lots of information about its
   // processing.
-  ArLineFinder lineFinder(&sick);
+
+  ArLaser *laser = robot.findLaser(1);
+  if(!laser)
+  {
+    ArLog::log(ArLog::Terse, "lineFinderExample: No laser device connected, exiting.");
+    Aria::exit(4);
+    return 4;
+  }
+
+  ArLineFinder lineFinder(laser);
   lineFinder.setVerbose(true);
 
   // Add key callbacks that simply call the ArLineFinder::getLinesAndSaveThem()
@@ -71,26 +105,6 @@ int main(int argc, char **argv)
   keyHandler.addKeyHandler('F', &findLineCB);
 
   
-  ArLog::log(ArLog::Normal, "lineFinderExample: connecting to robot...");
-  if (!connector.connectRobot(&robot))
-  {
-    printf("Could not connect to robot... exiting\n");
-    Aria::exit(1);  // exit program with error code 1
-    return 1;
-  }
-  robot.runAsync(true);
-
-  // now set up the laser
-  ArLog::log(ArLog::Normal, "lineFinderExample: connecting to SICK laser...");
-  connector.setupLaser(&sick);
-  sick.runAsync();
-  if (!sick.blockingConnect())
-  {
-    printf("Could not connect to SICK laser... exiting\n");
-    Aria::exit(1);
-    return 1;
-  }
-
   printf("If you press the 'f' key the points and lines found will be saved\n");
   printf("Into the 'points' and 'lines' file in the current working directory\n");
 

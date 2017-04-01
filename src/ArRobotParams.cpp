@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -146,7 +147,7 @@ AREXPORT ArRobotParams::~ArRobotParams()
 }
 
 
-AREXPORT void ArRobotParams::internalAddToConfigDefault(void)
+void ArRobotParams::internalAddToConfigDefault(void)
 {
   addComment("Robot parameter file");
 //  addComment("");
@@ -291,12 +292,14 @@ AREXPORT void ArRobotParams::internalAddToConfigDefault(void)
   addParam(ArConfigArg("CompassType", myCompassType, "type of compass: robot (typical configuration), or serialTCM (computer serial port)", sizeof(myCompassType)), section.c_str(), ArPriority::NORMAL);
   addParam(ArConfigArg("CompassPort", myCompassPort, "serial port name, if CompassType is serialTCM", sizeof(myCompassPort)), section.c_str(), ArPriority::NORMAL);
 
+
   section = "Sonar parameters";
   addParam(ArConfigArg("SonarNum", &myNumSonar, 
 		     "Number of sonars on the robot."), section.c_str(),
 	   ArPriority::NORMAL);
+
   addParam(ArConfigArg("SonarUnit", &mySonarUnitSetFunctor, &mySonarUnitGetFunctor,
-		       "SonarUnit <sonarNumber> <x position, mm> <y position, mm> <heading of disc, degrees>  (for MTX sonar there is also <sonar board> <sonar board unit position> <gain> <detection threshold> <num echo samples>)"), section.c_str(), ArPriority::TRIVIAL);
+		       "SonarUnit <sonarNumber> <x position, mm> <y position, mm> <heading of disc, degrees> <MTX sonar board> <MTX sonar board unit position> <MTX gain> <MTX detection threshold> <MTX max range> <autonomous driving sensor flag>"), section.c_str(), ArPriority::TRIVIAL);
 
   int i;
   for (i = 1; i <= Aria::getMaxNumSonarBoards(); i++)
@@ -916,38 +919,49 @@ void ArRobotParams::addVideoToConfig(int i, ArConfig *config)
   //if (i == 0)
   //  printf("XXX added VideoType param for Video 1, its target is 0x%x, initial value is %s\n", &(myVideoParams[i].type), myVideoParams[i].type.c_str());
   config->addParam(ArConfigArg("VideoInverted", &(myVideoParams[i].inverted), "If image should be flipped (for cameras mounted inverted/upside-down)"), section.c_str());
-  config->addParam(ArConfigArg("VideoWidth", &(myVideoParams[i].imageWidth), "Desired width of image"), section.c_str());
-  addParam(ArConfigArg("VideoHeight", &(myVideoParams[i].imageHeight), "Desired height of image"), section.c_str());
-  addParam(ArConfigArg("VideoDeviceIndex", &(myVideoParams[i].deviceIndex), "Device index"), section.c_str());
+  config->addParam(ArConfigArg("VideoWidth", &(myVideoParams[i].imageWidth), "Desired width of image, or -1 for default"), section.c_str());
+  addParam(ArConfigArg("VideoHeight", &(myVideoParams[i].imageHeight), "Desired height of image, or -1 for default"), section.c_str());
+  addParam(ArConfigArg("VideoDeviceIndex", &(myVideoParams[i].deviceIndex), "Device index, or -1 for default"), section.c_str());
   config->addParam(ArConfigArg("VideoDeviceName", &(myVideoParams[i].deviceName), "Device name (overrides VideoDeviceIndex)"), section.c_str());
-  config->addParam(ArConfigArg("VideoChannel", &(myVideoParams[i].channel), "Input channel"), section.c_str());
-  addParam(ArConfigArg("VideoAnalogSignalFormat", &(myVideoParams[i].analogSignalFormat), "NTSC or PAL"), section.c_str(), ArPriority::NORMAL, "Choices:NTSC;;PAL");
+  config->addParam(ArConfigArg("VideoChannel", &(myVideoParams[i].channel), "Input channel, or -1 for default"), section.c_str());
+  addParam(ArConfigArg("VideoAnalogSignalFormat", &(myVideoParams[i].analogSignalFormat), "NTSC or PAL, or empty for default. Only used for analog framegrabbers."), section.c_str(), ArPriority::NORMAL, "Choices:NTSC;;PAL");
   config->addParam(ArConfigArg("VideoAddress", &(myVideoParams[i].address), "IP address or hostname, or none if not using network communication."), section.c_str());
   config->addParam(ArConfigArg("VideoTCPPort", &(myVideoParams[i].tcpPort), "TCP Port to use for HTTP network connection"), section.c_str());
 }
 
 
-AREXPORT bool ArRobotParams::parseSonarUnit (ArArgumentBuilder *builder)
-{
-	// PS 9/5/12 - we need to support the old way, ie 4 parameters and the
-	// new way - so test the size first
-	if (builder->getArgc() == 4) {
-		if (builder->getArgc() != 4 || !builder->isArgInt (0) ||
-		    !builder->isArgInt (1) || !builder->isArgInt (2) ||
-		    !builder->isArgInt (3)) {
-			ArLog::log (ArLog::Terse, "ArRobotParams: SonarUnit parameters invalid");
-			return false;
-		}
-		mySonarMap[builder->getArgInt (0)][SONAR_X] = builder->getArgInt (1);
-		mySonarMap[builder->getArgInt (0)][SONAR_Y] = builder->getArgInt (2);
-		mySonarMap[builder->getArgInt (0)][SONAR_TH] = builder->getArgInt (3);
 
-    ArLog::log(ArLog::Terse, "ArRobotParams::parseSonarUnit done parsing");
-		
-		return true;
-	} else {
-		return parseMTXSonarUnit (builder);
-	}
+
+/** Called by subclasses in ArRobotTypes.h to set defaults (before file load; parameter file parsing uses parseSonar() instead)
+    If any value is -1, then it is not set and any exisiting stored value is kept.
+    @param num Index of sonar sensor on robot (starts at 0). NOTE These must form a set of consecutive integers over all calls to this function; if any are skipped then their entries in sonar unit parameters will be unset (uninitialized)!
+    @param x X position of sensor on robot
+    @param y Y position of sensor on robot
+    @param th Angle at which the sensor points
+    @param mtxboard For MTX sonar, which sonar module controls this sensor. Starts at 1.
+    @param mtxunit For MTX sonar, index of this sensor in the MTX sonar module @a mtxboard. Starts at 1.
+    @param mtxgain For MTX sonar, gain to set, or 0 to use default.
+    @param mtxthresh For MTX sonar, detection threshold to set, or 0 to use default.
+    @param mtxmax for MTX sonar, max range set on sonar to limit sensing
+*/
+AREXPORT void ArRobotParams::internalSetSonar(int num, int x, int y, int th,
+    int mtxboard, int mtxunit, int mtxgain, int mtxthresh, int mtxmax )
+{
+  if(num < 0) 
+  {
+    ArLog::log(ArLog::Terse, "ArRobotParams::internalSetSonar: Error: Invalid SonarUnit # %d (must be > 0).", num);
+    return;
+  }
+  mySonarMap[num][SONAR_X] = x;
+  mySonarMap[num][SONAR_Y] = y;
+  mySonarMap[num][SONAR_TH] = th;
+  mySonarMap[num][SONAR_BOARD] = mtxboard;
+  mySonarMap[num][SONAR_BOARDUNITPOSITION] = mtxunit;
+  mySonarMap[num][SONAR_GAIN] = mtxgain;
+  mySonarMap[num][SONAR_DETECTION_THRESHOLD] = mtxthresh;
+  mySonarMap[num][SONAR_MAX_RANGE] = mtxmax;
+  mySonarMap[num][SONAR_USE_FOR_AUTONOMOUS_DRIVING] = true;
+  myNumSonarUnits = ArUtil::findMax(myNumSonarUnits, (num+1));
 }
 
 #if 0
@@ -971,6 +985,42 @@ AREXPORT const std::list<ArArgumentBuilder *> *ArRobotParams::getSonarUnits(void
 }
 #endif
 
+AREXPORT bool ArRobotParams::parseSonarUnit (ArArgumentBuilder *builder)
+{
+	// If only three values given, then its pre-MTX style. If more, then its for MTX.
+	if (builder->getArgc() == 4) {
+
+    // pre-MTX style:
+
+		if (builder->getArgc() != 4 || !builder->isArgInt (0) ||
+		    !builder->isArgInt (1) || !builder->isArgInt (2) ||
+		    !builder->isArgInt (3)) {
+			ArLog::log (ArLog::Terse, "ArRobotParams: SonarUnit parameters invalid");
+			return false;
+		}
+
+		const int num = builder->getArgInt(0);
+		if(num < 0) 
+		{
+		  ArLog::log(ArLog::Terse, "ArRobotParams: Error: Invalid SonarUnit # %d (must be > 0).", num);
+		  return false;
+		}
+
+		mySonarMap[num][SONAR_X] = builder->getArgInt (1);
+		mySonarMap[num][SONAR_Y] = builder->getArgInt (2);
+		mySonarMap[num][SONAR_TH] = builder->getArgInt (3);
+
+		ArLog::log(ArLog::Verbose, "ArRobotParams::parseSonarUnit done parsing");
+		
+		return true;
+	} else {
+
+    // MTX style:
+
+		return parseMTXSonarUnit (builder);
+	}
+}
+
 AREXPORT bool ArRobotParams::parseMTXSonarUnit(ArArgumentBuilder *builder)
 {
   // there has to be at least 5 arguments, 1st 5 are ints
@@ -986,25 +1036,37 @@ AREXPORT bool ArRobotParams::parseMTXSonarUnit(ArArgumentBuilder *builder)
 		return false;
 	}
 
-  myNumSonarUnits++;
+  const int num = builder->getArgInt(0);
+  myNumSonarUnits = ArUtil::findMax(myNumSonarUnits, (num+1));
+  if(num < 0) 
+  {
+    ArLog::log(ArLog::Terse, "ArRobotParams: Error: Invalid SonarUnit # %d (must be > 0).", num);
+    return false;
+  }
+  mySonarMap[num][SONAR_X] = builder->getArgInt(1);
+  mySonarMap[num][SONAR_Y] = builder->getArgInt(2);
+  mySonarMap[num][SONAR_TH] = builder->getArgInt(3);
+  const int boardnum = builder->getArgInt(4);
+  mySonarMap[num][SONAR_BOARD] = boardnum;
+  mySonarMap[num][SONAR_BOARDUNITPOSITION] = builder->getArgInt(5);
 
-  mySonarMap[builder->getArgInt(0)][SONAR_X] = builder->getArgInt(1);
-  mySonarMap[builder->getArgInt(0)][SONAR_Y] = builder->getArgInt(2);
-  mySonarMap[builder->getArgInt(0)][SONAR_TH] = builder->getArgInt(3);
-  mySonarMap[builder->getArgInt(0)][SONAR_BOARD] = builder->getArgInt(4);
-  mySonarMap[builder->getArgInt(0)][SONAR_BOARDUNITPOSITION] = builder->getArgInt(5);
-  SonarMTXBoardData *sonarMTXBoardData = getSonarMTXBoardData(builder->getArgInt(4));
+  SonarMTXBoardData *sonarMTXBoardData = getSonarMTXBoardData(boardnum);
   if(sonarMTXBoardData)
-	  sonarMTXBoardData->myNumSonarTransducers++;
+	  sonarMTXBoardData->myNumSonarTransducers = ArUtil::findMax(sonarMTXBoardData->myNumSonarTransducers,  mySonarMap[num][SONAR_BOARDUNITPOSITION]);
+  else
+  {
+    ArLog::log(ArLog::Terse, "ArRobotParams: Error: Invalid MTX sonar board # %d in SonarUnit # %d.", boardnum, num);
+    return false;
+  }
 	
   // prob should get these defaults from board
-  mySonarMap[builder->getArgInt(0)][SONAR_GAIN] = 0;//SONAR_DEFAULT_GAIN;
+  mySonarMap[num][SONAR_GAIN] = 0;//SONAR_DEFAULT_GAIN;
 	/*
   mySonarMap[builder->getArgInt(0)][SONAR_NOISE_DELTA] = 0;
 	*/
-  mySonarMap[builder->getArgInt(0)][SONAR_DETECTION_THRESHOLD] = 0;
-  mySonarMap[builder->getArgInt(0)][SONAR_MAX_RANGE] = 0;
-  mySonarMap[builder->getArgInt(0)][SONAR_USE_FOR_AUTONOMOUS_DRIVING] = true;
+  mySonarMap[num][SONAR_DETECTION_THRESHOLD] = 0;
+  mySonarMap[num][SONAR_MAX_RANGE] = 0;
+  mySonarMap[num][SONAR_USE_FOR_AUTONOMOUS_DRIVING] = true;
   
   if (builder->getArgc() > 6) {
     // gain arg will either be an int or "default"
@@ -1085,7 +1147,7 @@ AREXPORT const std::list<ArArgumentBuilder *> *ArRobotParams::getSonarUnits(void
 //  ArLog::log(ArLog::Normal, "Saving sonar units?");
 
   std::map<int, std::map<int, int> >::iterator it;
-  int unitNum, x, y, th, boardNum, boardUnitPosition, gain, noiseDelta, detectionThreshold, numEchoSamples;
+  int unitNum, x, y, th, boardNum, boardUnitPosition, gain, /*noiseDelta,*/ detectionThreshold, numEchoSamples;
 	bool useForAutonomousDriving;
   ArArgumentBuilder *builder;
 
@@ -1110,7 +1172,10 @@ AREXPORT const std::list<ArArgumentBuilder *> *ArRobotParams::getSonarUnits(void
     builder->add("%d %d %d %d %d %d %d %d %d %d", 
 		 unitNum, x, y, th, boardNum, boardUnitPosition, gain, noiseDelta, detectionThreshold, numEchoSamples);
 		*/
-    builder->add("%d %d %d %d %d %d %d %d %d %d", 
+	if(boardNum < 1 || boardUnitPosition < 1 || gain < 0 || detectionThreshold < 0 || numEchoSamples < 0)
+		builder->add("%d %d %d %d", unitNum, x, y, th);
+	else
+		builder->add("%d %d %d %d %d %d %d %d %d %d", 
 		 unitNum, x, y, th, boardNum, boardUnitPosition, gain, detectionThreshold, numEchoSamples, useForAutonomousDriving);
 
     myGetSonarUnitList.push_back(builder);
@@ -1118,13 +1183,6 @@ AREXPORT const std::list<ArArgumentBuilder *> *ArRobotParams::getSonarUnits(void
   return &myGetSonarUnitList;
 }
 
-AREXPORT void ArRobotParams::internalSetSonar(int num, int x, 
-					      int y, int th)
-{
-  mySonarMap[num][SONAR_X] = x;
-  mySonarMap[num][SONAR_Y] = y;
-  mySonarMap[num][SONAR_TH] = th;
-}
 
 AREXPORT bool ArRobotParams::parseIRUnit(ArArgumentBuilder *builder)
 {
@@ -1179,7 +1237,7 @@ AREXPORT bool ArRobotParams::save(void)
   return writeFile(buf, false, NULL, false);
 }
 
-AREXPORT void ArRobotParams::internalAddToConfigCommercial(
+void ArRobotParams::internalAddToConfigCommercial(
 	ArConfig *config)
 {
   ArLog::log(ArLog::Normal, "ArRobotParams: Adding to config");
@@ -1397,7 +1455,7 @@ void ArRobotParams::addSonarToConfigCommercial(ArConfig *config,
                      section.c_str(),
                      "Definition of the sonar on this vehicle.");
 
-  config->addParam(ArConfigArg("NumSonar", myCommercialNumSonar, "Number of sonars on this robot.", 0, maxSonar),
+  config->addParam(ArConfigArg("NumSonar", &myCommercialNumSonar, "Number of sonars on this robot.", 0, maxSonar),
 		   section.c_str(), ArPriority::FACTORY,
 		   "SpinBox", ArConfigArg::RESTART_SOFTWARE);
   
@@ -1564,15 +1622,15 @@ void ArRobotParams::processSonarCommercial(ArConfig *config)
 
 AREXPORT void ArVideoParams::merge(const ArVideoParams& other)
 {
-  //printf("merge: other.type=%s, this.type=%s.\n", other.type.c_str(), type.c_str());
+//  printf("ArVideoParams::merge: other.type=%s, this.type=%s.\n", other.type.c_str(), type.c_str());
   if(other.type != "unknown" && other.type != "none" && other.type != "")
   {
-    //printf("merge: replacing this type %s with other %s\n", type.c_str(), other.type.c_str());
+    //printf("ArVideoParams::merge: replacing this type %s with other %s\n", type.c_str(), other.type.c_str());
     type = other.type;
   }
   if(other.connectSet)
   {
-    //printf("merge: replacing this connect %d with other %d\n", connect, other.connect);
+ //   printf("ArVideoParams::merge: replacing this connect %d with other %d. other.connectSet=%d, this.connectSet=%d\n", connect, other.connect, other.connectSet, connectSet);
     connect = other.connect;
     connectSet = true;
   }
@@ -1600,9 +1658,10 @@ AREXPORT void ArVideoParams::merge(const ArVideoParams& other)
   {
     analogSignalFormat = other.analogSignalFormat;
   }
+  //printf("ArVideoParams::merge: this address is %s, other address is %s\n", address.c_str(), other.address.c_str());
   if(other.address != "none" && other.address != "")
   {
-	  //printf("merge: replacing this address %s with other %s\n", address.c_str(), other.address.c_str());
+	  //printf("ArVideoParams::merge: replacing this address %s with other %s\n", address.c_str(), other.address.c_str());
     address = other.address;
   }
   if(other.tcpPortSet)
@@ -1612,7 +1671,7 @@ AREXPORT void ArVideoParams::merge(const ArVideoParams& other)
   }
   if(other.invertedSet)
   {
-    //printf("merge: replacing this inverted %d with other %d\n", inverted, other.inverted);
+    //printf("ArVideoParams::merge: replacing this inverted %d with other %d\n", inverted, other.inverted);
     inverted = other.inverted;
     invertedSet = true;
   }
@@ -1620,41 +1679,43 @@ AREXPORT void ArVideoParams::merge(const ArVideoParams& other)
 
 void ArPTZParams::merge(const ArPTZParams& other)
 {
+  //printf("ArPTZParams::merge: other.type=%s, this.type=%s.\n", other.type.c_str(), type.c_str());
   if(other.type != "unknown" && other.type != "none" && other.type != "")
   {
-    //printf("merge: replacing this type %s with other %s\n", type.c_str(), other.type.c_str());
+    //printf("ArPTZParams::merge: replacing this type %s with other %s\n", type.c_str(), other.type.c_str());
     type = other.type;
   }
   if(other.connectSet)
   {
-    //printf("merge: replacing this connect %d with other %d\n", connect, other.connect);
+    //pgintf("ArPTZParams::merge: replacing this connect %d with other %d\n", connect, other.connect);
+    //printf("ArPTZParams::merge: replacing this connect %d with other %d. other.connectSet=%d, this.connectSet=%d\n", connect, other.connect, other.connectSet, connectSet);
     connect = other.connect;
     connectSet = true;
   }
   if(other.serialPort != "none" && other.serialPort != "")
   {
-    //printf("merge: replacing this serialPort %s with other %s\n", serialPort.c_str(), other.serialPort.c_str());
+    //printf("ArPTZParams::merge: replacing this serialPort %s with other %s\n", serialPort.c_str(), other.serialPort.c_str());
     serialPort = other.serialPort;
   }
   if(other.robotAuxPort != -1)
   {
-    //printf("merge: replacing this robotAuxPort %d with other %d\n", robotAuxPort, other.robotAuxPort);
+    //printf("ArPTZParams::merge: replacing this robotAuxPort %d with other %d\n", robotAuxPort, other.robotAuxPort);
     robotAuxPort = other.robotAuxPort;
   }
   if(other.address != "none")
   {
-    //printf("merge: replacing this address %s with other %s\n", address.c_str(), other.address.c_str());
+    //printf("ArPTZParams::merge: replacing this address %s with other %s\n", address.c_str(), other.address.c_str());
     address = other.address;
   }
   if(other.tcpPortSet)
   {
-    //printf("merge: replacing this tcpPort %d with other %d\n", tcpPort, other.tcpPort);
+    //printf("ArPTZParams::merge: replacing this tcpPort %d with other %d\n", tcpPort, other.tcpPort);
     tcpPort = other.tcpPort;
     tcpPortSet = true;
   }
   if(other.invertedSet)
   {
-    //printf("merge: replacing this inverted %d with other %d\n", inverted, other.inverted);
+    //printf("ArPTZParams::merge: replacing this inverted %d with other %d\n", inverted, other.inverted);
     inverted = other.inverted;
     invertedSet = true;
   }

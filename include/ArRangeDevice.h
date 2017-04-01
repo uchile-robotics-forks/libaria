@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -56,7 +57,7 @@ class ArRobot;
     Not all devices provide raw readings.
 
     Subclasses are used for specific sensor implementations like
-    ArSick for SICK lasers and ArSonarDevice for the Pioneer sonar
+    ArLaser and subclasses for laser rangefinders and ArSonarDevice for the Pioneer sonar
     array. It can also be useful to treat "virtual" objects like
     forbidden areas specified by the user in a map like range devices.
     Some of these subsclasses may use a separate thread to update the
@@ -177,9 +178,10 @@ public:
       this function, the only manipulation of this list should be done by
       the range device itself.  (Its only pointers for speed.)
 
-      @note Only ArSick provides this data currently.  Sonar, bumpers,
+      @note Only laser subclasses provide this data currently.  Sonar, bumpers,
       etc. do not provide raw readings.
-      This method was added to this base class for future lasers or other
+      This method was added to this base class for use by multiple laser or
+laser-like subclassses of ArRangeDevice and ArRangeDeviceThreaded
       similar devices.
       Other kinds of range devices are sufficiently different from lasers that
       any "raw" information provided would usually require very different interpretation.
@@ -201,12 +203,8 @@ public:
       robot odometry offset (just the pose taken, and encoder psoe
       taken).
 
-      @note Only ArSick provides this data currently.  Sonar, bumpers,
+      @note Only lasers provides this data currently.  Sonar, bumpers,
       etc. do not provide raw readings.
-      This method was added to this base class for future lasers or other
-      similar devices.
-      Other kinds of range devices are sufficiently different from lasers that
-      any "raw" information provided would usually require very different interpretation.
   **/
   virtual const std::list<ArSensorReading *> *getAdjustedRawReadings(void) const
     { return myAdjustedRawReadings; }

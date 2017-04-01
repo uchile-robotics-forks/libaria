@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -54,21 +55,29 @@ public:
   /// Destructor
   AREXPORT virtual ~ArSonarAutoDisabler();
   /// Supresses this disabler (which turns off the sonar)
-  void supress(void) { mySupressed = true; }
+  void supress(void) 
+    { ArLog::log(ArLog::Normal, "ArSonarAutoDisabler::supress:"); 
+      mySupressed = true; }
   /// Gets the callback to supress the autodisabler
   ArFunctor *getSupressCallback(void) { return &mySupressCB; }
   /// Unsupresses this disabler (goes back to auto enabling/disabling)
-  void unsupress(void) { mySupressed = false; }
+  void unsupress(void) 
+    { ArLog::log(ArLog::Normal, "ArSonarAutoDisabler::unsupress:"); 
+      mySupressed = false; }
   /// Gets the callback to supress the autodisabler
   ArFunctor *getUnsupressCallback(void) { return &myUnsupressCB; }
 
   /// Sets that we're autonomous drivign so we only enable some sonar
-  void setAutonomousDriving(void) { myAutonomousDriving = true; }
+  void setAutonomousDriving(void) 
+    { ArLog::log(ArLog::Normal, "ArSonarAutoDisabler::setAutonomousDriving:"); 
+      myAutonomousDriving = true; }
   /// Gets the callback to set that we're driving autonomously
   ArFunctor *getSetAutonomousDrivingCallback(void) 
     { return &mySetAutonomousDrivingCB; }
   /// Sets that we're driving non-autonomously so we enable all sonar
-  void clearAutonomousDriving(void) { myAutonomousDriving = false; }
+  void clearAutonomousDriving(void) 
+    { ArLog::log(ArLog::Normal, "ArSonarAutoDisabler::clearAutonomousDriving:"); 
+      myAutonomousDriving = false; }
   /// Gets the callback to set that we're not driving autonomously
   ArFunctor *getClearAutonomousDrivingCallback(void) 
     { return &myClearAutonomousDrivingCB; }

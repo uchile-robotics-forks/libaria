@@ -1,8 +1,9 @@
 """
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -23,6 +24,8 @@ Adept MobileRobots for information about a commercial version of ARIA at
 robots@mobilerobots.com or 
 Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 """
+
+from __future__ import division # For correct float division in Python 2
 from AriaPy import *
 import sys
 
@@ -32,16 +35,38 @@ import sys
 #  than the joydrive action behavior.  So the joydrive action can try
 #  to do whatever it wants, but it won't work.
 
-Aria_init()
-
-# Robot and device objects
+Aria.init()
+argparser = ArArgumentParser(sys.argv)
+argparser.loadDefaultArguments()
 robot = ArRobot()
-sonar = ArSonarDevice()
-sick = ArSick()
-robot.addRangeDevice(sonar)
+conn = ArRobotConnector(argparser, robot)
+laserCon = ArLaserConnector(argparser, robot, conn)
 
-if 1:
-  robot.addRangeDevice(sick)
+if (not conn.connectRobot(robot)):
+  print 'Error connecting to robot'
+  Aria.logOptions()
+  print 'Could not connect to robot, exiting.'
+  Aria.exit(1)
+
+	
+print 'Connected to robot'
+sonar = ArSonarDevice()
+robot.addRangeDevice(sonar)
+robot.runAsync(1)
+
+if not Aria_parseArgs():
+  Aria.logOptions()
+  Aria.exit(1)
+  
+
+print 'Connecting to laser and waiting 1 sec...'
+laser = None
+if(laserCon.connectLasers()):
+  print 'Connected to lasers as configured in parameters'
+  laser = robot.findLaser(1)
+else:
+  print 'Warning: unable to connect to lasers. Continuing anyway!'
+
 
 # the joydrive action
 jdAct = ArActionJoydrive()
@@ -62,43 +87,26 @@ tableLimiter = ArActionLimiterTableSensor()
 # limiter so we don't bump things backwards
 backwardsLimiter = ArActionLimiterBackwards()
 
-
-
-connector = ArSimpleConnector(sys.argv)
-
-if not connector.parseArgs():
-  connector.logOptions()
-  Aria_exit(1)
-
-# try to connect to the robot, if we fail exit
-print "Connecting to the robot..."
-if not connector.connectRobot(robot):
-  print "Could not connect to robot. exiting"
-  Aria_shutdown()
-  Aria_exit(1)
-
-# try to connect to the laser, if we succeed, add as range device to robot
-print "setup and connect sick"
-sick.runAsync()
-connector.setupLaser(sick)
-if sick.blockingConnect():
-  print "Connected to SICK laser"
-else:
-  print "Note, could not connect to SICK laser."
-
-print "Connected to the robot.  Use arrow keys or joystick to move. Spacebar to stop."
-
 # add the actions, put the limiters on top, then have the joydrive action,
 # this will keep the action from being able to drive too fast and hit
 # something
+robot.lock()
 robot.addAction(tableLimiter, 100)
 robot.addAction(limiter, 95)
 robot.addAction(limiterFar, 90)
 robot.addAction(backwardsLimiter, 85)
 robot.addAction(kdAct, 51)
 robot.addAction(jdAct, 50)
+robot.unlock()
+
+
+print "Connected to the robot.  Use arrow keys or joystick to move. Spacebar to stop."
+
 
 # enable motors and run the robot until connection is lost
 robot.enableMotors()
-robot.run(1)
-Aria_shutdown()
+
+while 1:
+  ArUtil.sleep(500)
+
+Aria.exit(0)

@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -127,15 +128,12 @@ AREXPORT ArDeviceConnection *ArRobotPacketReceiver::getDeviceConnection(void)
 
 /**
     @param msWait how long to block for the start of a packet, nonblocking if 0
-    @return NULL if there are no packets in alloted time, otherwise a pointer
-    to the packet received, if allocatePackets is true than the place that 
-    called this function owns the packet and should delete the packet when 
-    done... if allocatePackets is false then nothing must store a pointer to
-    this packet, the packet must be used and done with by the time this 
-    method is called again
-*/
-AREXPORT ArRobotPacket *ArRobotPacketReceiver::receivePacket(
-	unsigned int msWait)
+    @return NULL if there are no packets in alloted time, the device connection is closed, or other error. Otherwise a pointer
+    to the packet received is returned. If allocatePackets is true than the caller 
+    must delete the packet. If allocatePackets is false then the packet object
+    will be reused in the next call; the caller must not store or use that packet object.
+ */
+AREXPORT ArRobotPacket* ArRobotPacketReceiver::receivePacket(unsigned int msWait)
 {
   ArRobotPacket *packet;
   unsigned char c;
@@ -150,7 +148,6 @@ AREXPORT ArRobotPacket *ArRobotPacketReceiver::receivePacket(
   ArTime lastDataRead;
   ArTime packetReceived;
   int numRead;
-
   if (myAllocatePackets)
     packet = new ArRobotPacket(mySync1, mySync2);
   else
@@ -159,6 +156,8 @@ AREXPORT ArRobotPacket *ArRobotPacketReceiver::receivePacket(
   if (packet == NULL || myDeviceConn == NULL || 
       myDeviceConn->getStatus() != ArDeviceConnection::STATUS_OPEN)
   {
+    if (myTracking)
+      ArLog::log(ArLog::Normal, "%s: receivePacket: connection not open", myTrackingLogName.c_str());
     myDeviceConn->debugEndPacket(false, -10);
     if (myAllocatePackets)
       delete packet;
@@ -192,16 +191,17 @@ AREXPORT ArRobotPacket *ArRobotPacketReceiver::receivePacket(
 			// buffer length is in range
 			
 			if ((myTracking) && (packet->getLength() < 10000)) {
-
+  
 				unsigned char *buf = (unsigned char *) packet->getBuf();
-		
+
 				char obuf[10000];
 				obuf[0] = '\0';
 				int j = 0;
 				for (int i = 0; i < packet->getLength(); i++) {
 					sprintf (&obuf[j], "_%02x", buf[i]);
-					j= j+3;
+					j +=3;
 				}
+
 				ArLog::log (ArLog::Normal,
 				            "Recv Packet: %s packet = %s", 
 										myTrackingLogName.c_str(), obuf);
@@ -215,10 +215,11 @@ AREXPORT ArRobotPacket *ArRobotPacketReceiver::receivePacket(
     {
       myDeviceConn->debugEndPacket(false, -20);
       if (myAllocatePackets)
-	delete packet;
+	      delete packet;
+     
       return NULL;
     }
-  }      
+  } // end if log file connection      
   
 
   do
@@ -237,7 +238,9 @@ AREXPORT ArRobotPacket *ArRobotPacketReceiver::receivePacket(
             {
 	      myDeviceConn->debugEndPacket(false, -30);
               if (myAllocatePackets)
-                delete packet;
+                delete packet; 
+              if (myTracking)
+                ArLog::log(ArLog::Normal, "%s: waiting for sync1 (got 0x%x).", myTrackingLogName.c_str(), c);
               return NULL;
             }
           else
@@ -255,6 +258,8 @@ AREXPORT ArRobotPacket *ArRobotPacketReceiver::receivePacket(
 
         if (c == mySync1) // move on, resetting packet
           {
+            if (myTracking)
+              ArLog::log(ArLog::Normal, "%s: got sync1 0x%x", myTrackingLogName.c_str(), c);
             state = STATE_SYNC2;
             packet->empty();
             packet->setLength(0);
@@ -263,20 +268,23 @@ AREXPORT ArRobotPacket *ArRobotPacketReceiver::receivePacket(
             packet->setTimeReceived(packetReceived);
           }
         else
-	{
-          //printf("Bad sync1 %d\n", c);
-	}
+	      {
+          if(myTracking) ArLog::log(ArLog::Normal, "%s: Not sync1 0x%x (expected 0x%x)\n", myTrackingLogName.c_str(), c, mySync1);
+	      }
         break;
       case STATE_SYNC2:
  
        if (c == mySync2) // move on, adding this byte
           {
+            if (myTracking)
+              ArLog::log(ArLog::Normal, "%s: got sync2 0x%x", myTrackingLogName.c_str(), c);
+
             state = STATE_ACQUIRE_DATA;
             packet->uByteToBuf(c);
           }
         else // go back to beginning, packet hosed
           {
-	    //printf("Bad sync2 %d\n", c);
+	          if(myTracking) ArLog::log(ArLog::Normal, "%s: Bad sync2 0x%x (expected 0x%x)\n", myTrackingLogName.c_str(), c, mySync2);
             state = STATE_SYNC1;
           }
         break;
@@ -316,7 +324,7 @@ AREXPORT ArRobotPacket *ArRobotPacketReceiver::receivePacket(
 		myDeviceConn->debugEndPacket(false, -40);
                 if (myAllocatePackets)
                   delete packet;
-		//printf("Bad time taken reading\n");
+		            //printf("Bad time taken reading\n");
                 return NULL;
               }
             count += numRead;
@@ -341,7 +349,6 @@ AREXPORT ArRobotPacket *ArRobotPacketReceiver::receivePacket(
 			// buffer length is in range
 
 			if ((myTracking) && (packet->getLength() < 10000)) {
-
 				unsigned char *buf = (unsigned char *) packet->getBuf();
 		
 				char obuf[10000];
@@ -351,6 +358,7 @@ AREXPORT ArRobotPacket *ArRobotPacketReceiver::receivePacket(
 					sprintf (&obuf[j], "_%02x", buf[i]);
 					j= j+3;
 				}
+
 				ArLog::log (ArLog::Normal,
 				            "Recv Packet: %s packet = %s", 
 										myTrackingLogName.c_str(), obuf);
@@ -379,7 +387,7 @@ AREXPORT ArRobotPacket *ArRobotPacketReceiver::receivePacket(
     } while (timeDone.mSecTo() >= 0 || state != STATE_SYNC1);
 
   myDeviceConn->debugEndPacket(false, -60);
-  //printf("finished the loop...\n");
+  //printf("finished the loop...\n"); 
   if (myAllocatePackets)
     delete packet;
   return NULL;

@@ -486,7 +486,9 @@ WARN_LOGFILE           =
 INPUT                  = src/ \
                          include/ \
                          examples/ \
-                         docs/options/all_options.dox
+                         docs/options/all_options.dox \
+                         docs/RemoteRequestAPI.dox \
+                         docs/overview.dox
 
 # This tag can be used to specify the character encoding of the source files that 
 # doxygen parses. Internally doxygen uses the UTF-8 encoding, which is also the default 

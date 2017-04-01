@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -60,7 +61,7 @@ Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 int main()
 {
   // The string to send to the client. 
-  char *strToSend="Hello Client";
+  const char *strToSend="Hello Client";
   // The buffer in which to recieve the hello from the client
   char buff[100];
   // The size of the string the client sent
@@ -101,7 +102,7 @@ int main()
     // Send the string 'Hello Client' to the client. write() should
     // return the same number of bytes that we told it to write. Otherwise,
     // its an error condition.
-    if (clientSock.write(strToSend, strlen(strToSend)) == strlen(strToSend))
+    if (clientSock.write(strToSend, strlen(strToSend)) == (int) strlen(strToSend))
       ArLog::log(ArLog::Normal, "socketServerExample: Said hello to the client.");
     else
     {

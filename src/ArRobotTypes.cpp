@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -96,6 +97,22 @@ AREXPORT ArRobotAmigoSh::ArRobotAmigoSh(const char *dir)
   internalSetSonar(7, -146, 58, 145);
 }
 
+AREXPORT ArRobotAmigoShTim5xxWibox::ArRobotAmigoShTim5xxWibox(const char* dir)
+  : ArRobotAmigoSh(dir)
+{
+  sprintf(mySubClass, "amigo-sh-tim3xx");
+  if (getLaserData(1) != NULL)
+  {
+    sprintf(getLaserData(1)->myLaserType, "tim5XX");
+    sprintf(getLaserData(1)->myLaserPortType, "tcp");
+    sprintf(getLaserData(1)->myLaserPort, "10.0.126.11:8102");
+    getLaserData(1)->myLaserX = 110;
+    getLaserData(1)->myLaserY = 0;
+    getLaserData(1)->myLaserZ = 200;
+    getLaserData(1)->myLaserAutoConnect = true;
+  }
+}
+
 // P2AT robot class
 
 AREXPORT ArRobotP2AT::ArRobotP2AT(const char *dir)
@@ -140,10 +157,6 @@ AREXPORT ArRobotP2AT::ArRobotP2AT(const char *dir)
     getLaserData(1)->myLaserX = 160;
     getLaserData(1)->myLaserY = 7;
   }
-
-
-
-
 
 
   myPTZParams[0].setType("sony");
@@ -1281,6 +1294,7 @@ AREXPORT ArRobotP3AT::ArRobotP3AT(const char *dir)
     sprintf(getLaserData(1)->myLaserPort, "COM3");
     getLaserData(1)->myLaserX = 160;
     getLaserData(1)->myLaserY = 0;
+    getLaserData(1)->myLaserAutoConnect = true;
   }
 
   myGPSX = -160;
@@ -1344,6 +1358,7 @@ AREXPORT ArRobotP3DX::ArRobotP3DX(const char *dir)
     sprintf(getLaserData(1)->myLaserPort, "COM3");
     getLaserData(1)->myLaserX = 18;
     getLaserData(1)->myLaserY = 0;
+    getLaserData(1)->myLaserAutoConnect = true;
   }
 
 
@@ -1433,6 +1448,7 @@ AREXPORT ArRobotPerfPBPlus::ArRobotPerfPBPlus(const char *dir)
     sprintf(getLaserData(1)->myLaserPort, "COM3");
     getLaserData(1)->myLaserX = 21;
     getLaserData(1)->myLaserY = 0;
+    getLaserData(1)->myLaserAutoConnect = true;
   }
 
 
@@ -1491,6 +1507,7 @@ AREXPORT ArRobotP3DXSH::ArRobotP3DXSH(const char *dir)
     sprintf(getLaserData(1)->myLaserPort, "COM3");
     getLaserData(1)->myLaserX = 21;
     getLaserData(1)->myLaserY = 0;
+    getLaserData(1)->myLaserAutoConnect = true;
   }
 
   myGPSX = -160;
@@ -1503,6 +1520,8 @@ AREXPORT ArRobotP3DXSH::ArRobotP3DXSH(const char *dir)
   myPTZParams[0].setConnect(true);
   myVideoParams[0].setType("vapix");   
   myVideoParams[0].setConnect(true);
+  myPTZParams[0].setAddress("192.168.0.90");
+  myVideoParams[0].setAddress("192.168.0.90");
 }
 
 
@@ -1547,6 +1566,7 @@ AREXPORT ArRobotP3ATSH::ArRobotP3ATSH(const char *dir)
     sprintf(getLaserData(1)->myLaserPort, "COM3");
     getLaserData(1)->myLaserX = 125;
     getLaserData(1)->myLaserY = 0;
+    getLaserData(1)->myLaserAutoConnect = true;
   }
   myGPSX = -160;
   myGPSY = 120;
@@ -1559,6 +1579,8 @@ AREXPORT ArRobotP3ATSH::ArRobotP3ATSH(const char *dir)
   myPTZParams[0].setConnect(true);
   myVideoParams[0].setType("vapix");   
   myVideoParams[0].setConnect(true);
+  myPTZParams[0].setAddress("192.168.0.90");
+  myVideoParams[0].setAddress("192.168.0.90");
 }
 
 
@@ -1603,6 +1625,7 @@ AREXPORT ArRobotP3ATIWSH::ArRobotP3ATIWSH(const char *dir)
     sprintf(getLaserData(1)->myLaserPort, "COM3");
     getLaserData(1)->myLaserX = 125;
     getLaserData(1)->myLaserY = 0;
+    getLaserData(1)->myLaserAutoConnect = true;
   }
 
   myGPSX = -160;
@@ -1616,6 +1639,8 @@ AREXPORT ArRobotP3ATIWSH::ArRobotP3ATIWSH(const char *dir)
   myPTZParams[0].setConnect(true);
   myVideoParams[0].setType("vapix");   
   myVideoParams[0].setConnect(true);
+  myPTZParams[0].setAddress("192.168.0.90");
+  myVideoParams[0].setAddress("192.168.0.90");
 }
 
 
@@ -1665,6 +1690,7 @@ AREXPORT ArRobotPatrolBotSH::ArRobotPatrolBotSH(const char *dir)
     sprintf(getLaserData(1)->myLaserPort, "COM3");
     getLaserData(1)->myLaserX = 37;
     getLaserData(1)->myLaserY = 0;
+    getLaserData(1)->myLaserAutoConnect = true;
     getLaserData(1)->myLaserFlipped = true;
     getLaserData(1)->myLaserPowerControlled = false;
     strcpy(getLaserData(1)->myLaserIgnore, 
@@ -1771,6 +1797,7 @@ AREXPORT ArRobotPeopleBotSH::ArRobotPeopleBotSH(const char *dir)
     sprintf(getLaserData(1)->myLaserPort, "COM3");
     getLaserData(1)->myLaserX = 21;
     getLaserData(1)->myLaserY = 0;
+    getLaserData(1)->myLaserAutoConnect = true;
   }
 
 
@@ -1781,6 +1808,8 @@ AREXPORT ArRobotPeopleBotSH::ArRobotPeopleBotSH(const char *dir)
   myVideoParams[0].setType("vapix");  
   myVideoParams[0].setConnect(true);
   myVideoParams[0].setInverted(true);
+  myPTZParams[0].setAddress("192.168.0.90");
+  myVideoParams[0].setAddress("192.168.0.90");
 }
 
 
@@ -1849,6 +1878,7 @@ AREXPORT ArRobotPowerBotSH::ArRobotPowerBotSH(const char *dir)
     getLaserData(1)->myLaserX = 251;
     getLaserData(1)->myLaserY = 0;
     getLaserData(1)->myLaserFlipped = true;
+    getLaserData(1)->myLaserAutoConnect = true;
   }
 
   sprintf(myGPSPort, "COM3"); // swap laser and hypothetical GPS
@@ -1860,6 +1890,8 @@ AREXPORT ArRobotPowerBotSH::ArRobotPowerBotSH(const char *dir)
   myPTZParams[0].setConnect(true);
   myVideoParams[0].setType("vapix");   
   myVideoParams[0].setConnect(true);
+  myPTZParams[0].setAddress("192.168.0.90");
+  myVideoParams[0].setAddress("192.168.0.90");
 }
 
 
@@ -1911,6 +1943,7 @@ AREXPORT ArRobotPowerBotSHuARCS::ArRobotPowerBotSHuARCS(const char *dir)
     getLaserData(1)->myLaserX = 251;
     getLaserData(1)->myLaserY = 0;
     getLaserData(1)->myLaserFlipped = true;
+    getLaserData(1)->myLaserAutoConnect = true;
   }
 
   sprintf(myGPSPort, "COM3"); // swap laser and hypothetical GPS
@@ -1944,6 +1977,7 @@ AREXPORT ArRobotWheelchairSH::ArRobotWheelchairSH(const char *dir)
     getLaserData(1)->myLaserY = 0;
     getLaserData(1)->myLaserFlipped = true;
     getLaserData(1)->myLaserPowerControlled = true;
+    getLaserData(1)->myLaserAutoConnect = true;
   }
 
   mySettableAccsDecs = true;
@@ -1971,6 +2005,8 @@ AREXPORT ArRobotSeekur::ArRobotSeekur(const char *dir)
   myDiffConvFactor = .0056;
   myRobotWidth = 1270;
   myRobotLength = 1410;
+  myRobotLengthFront = myRobotLength/2.0;
+  myRobotLengthRear = myRobotLength/2.0;
 
   myHaveMoveCommand = 0;  
   myFrontBumpers = true;
@@ -1988,6 +2024,7 @@ AREXPORT ArRobotSeekur::ArRobotSeekur(const char *dir)
     getLaserData(1)->myLaserY = 0;
     getLaserData(1)->myLaserFlipped = false;
     getLaserData(1)->myLaserPowerControlled = true;
+    getLaserData(1)->myLaserAutoConnect = true;
 
   }
 
@@ -2012,6 +2049,8 @@ AREXPORT ArRobotSeekur::ArRobotSeekur(const char *dir)
 
   myPTZParams[0].setType("rvision");
   myPTZParams[0].setConnect(true);
+  myPTZParams[0].setSerialPort("COM4");
+  myPTZParams[0].setAddress("none");
 #ifdef WIN32
   myVideoParams[0].setType("sx11");
 #else
@@ -2066,6 +2105,7 @@ AREXPORT ArRobotMT400::ArRobotMT400(const char *dir)
     sprintf(getLaserData(1)->myLaserPort, "COM3");
     getLaserData(1)->myLaserX = 37;
     getLaserData(1)->myLaserY = 0;
+    getLaserData(1)->myLaserAutoConnect = true;
     getLaserData(1)->myLaserFlipped = true;
     getLaserData(1)->myLaserPowerControlled = false;
     strcpy(getLaserData(1)->myLaserIgnore, 
@@ -2095,6 +2135,8 @@ AREXPORT ArRobotMT400::ArRobotMT400(const char *dir)
   myPTZParams[0].setConnect(true);
   myVideoParams[0].setType("vapix");   
   myVideoParams[0].setConnect(true); 
+  myPTZParams[0].setAddress("192.168.0.90");
+  myVideoParams[0].setAddress("192.168.0.90");
 }
 
 AREXPORT ArRobotResearchPB::ArRobotResearchPB(const char *dir)
@@ -2143,6 +2185,7 @@ AREXPORT ArRobotResearchPB::ArRobotResearchPB(const char *dir)
     sprintf(getLaserData(1)->myLaserPort, "COM3");
     getLaserData(1)->myLaserX = 37;
     getLaserData(1)->myLaserY = 0;
+    getLaserData(1)->myLaserAutoConnect = true;
     getLaserData(1)->myLaserFlipped = true;
     getLaserData(1)->myLaserPowerControlled = false;
     strcpy(getLaserData(1)->myLaserIgnore, 
@@ -2172,6 +2215,8 @@ AREXPORT ArRobotResearchPB::ArRobotResearchPB(const char *dir)
   myPTZParams[0].setConnect(true);
   myVideoParams[0].setType("vapix");   
   myVideoParams[0].setConnect(true); 
+  myPTZParams[0].setAddress("192.168.0.90");
+  myVideoParams[0].setAddress("192.168.0.90");
 }
 
 AREXPORT ArRobotSeekurJr::ArRobotSeekurJr(const char *dir)
@@ -2186,6 +2231,8 @@ AREXPORT ArRobotSeekurJr::ArRobotSeekurJr(const char *dir)
   myDiffConvFactor = .0056;
   myRobotWidth = 830;
   myRobotLength = 1200;
+  myRobotLengthFront = myRobotLength/2.0;
+  myRobotLengthRear = myRobotLength/2.0;
 
   myHaveMoveCommand = 0;  
   myFrontBumpers = true;
@@ -2205,6 +2252,7 @@ AREXPORT ArRobotSeekurJr::ArRobotSeekurJr(const char *dir)
     getLaserData(1)->myLaserPowerControlled = false;
     sprintf(getLaserData(1)->myLaserStartDegrees, "-117");
     sprintf(getLaserData(1)->myLaserEndDegrees, "117");
+    getLaserData(1)->myLaserAutoConnect = true;
   }
 
   if (getLaserData(2) != NULL)
@@ -2235,6 +2283,7 @@ AREXPORT ArRobotSeekurJr::ArRobotSeekurJr(const char *dir)
   myGPSBaud = 38400;
 
   myPTZParams[0].setType("rvision");
+  myPTZParams[0].setSerialPort("COM4");
   myPTZParams[0].setConnect(true);
 #ifdef WIN32
   myVideoParams[0].setType("sx11");
@@ -2293,6 +2342,7 @@ AREXPORT ArRobotP3DXSH_lms500::ArRobotP3DXSH_lms500(const char *dir) :
     sprintf(ld->myLaserPortType, "tcp");
     sprintf(ld->myLaserPort, "192.168.0.1");
     ld->myLaserX = 21;
+    ld->myLaserAutoConnect = true;
   }
 }
 
@@ -2366,16 +2416,31 @@ AREXPORT ArRobotPioneerLX::ArRobotPioneerLX(const char *dir)
   myRobotLengthRear = 348;
 
   myFrontBumpers = true;
-  myNumFrontBumpers = 4;
-  myRearBumpers = false;
-  myNumRearBumpers = 0;
+  myNumFrontBumpers = 3;
+  myRearBumpers = true;
+  myNumRearBumpers = 3;
+
+  mySettableVelMaxes = true;
+  myTransVelMax = 1800;
+  myRotVelMax = 180;
+  mySettableAccsDecs = true;
+  myTransAccel = 500;
+  myTransDecel = 600;
+  myRotAccel = 150;
+  myRotDecel = 200;
+
+  myHaveMoveCommand = false;
 
   LaserData *laser = NULL;
   if ( (laser = getLaserData(1)) != NULL)
   {
     sprintf(laser->myLaserType, "s3series");
     sprintf(laser->myLaserPortType, "serial422");
-    sprintf(laser->myLaserPort, "/dev/ttyUSB4");
+#ifdef WIN32
+	sprintf(laser->myLaserPort, ArUtil::COM7);
+#else
+	sprintf(laser->myLaserPort, "/dev/ttyUSB4");
+#endif
     sprintf(laser->myLaserStartingBaudChoice, "230400");
     laser->myLaserX = 267;
     laser->myLaserY = 0;
@@ -2391,7 +2456,11 @@ AREXPORT ArRobotPioneerLX::ArRobotPioneerLX(const char *dir)
   {
     sprintf(lcd->myLCDMTXBoardType, "mtx");
     sprintf(lcd->myLCDMTXBoardPortType, "serial422");
+#ifdef WIN32
+	sprintf(lcd->myLCDMTXBoardPort, ArUtil::COM11);
+#else
     sprintf(lcd->myLCDMTXBoardPort, "/dev/ttyUSB8");
+#endif
     lcd->myLCDMTXBoardBaud = 115200;
     lcd->myLCDMTXBoardAutoConn = true;
   }
@@ -2400,10 +2469,19 @@ AREXPORT ArRobotPioneerLX::ArRobotPioneerLX(const char *dir)
   {
     sprintf(sonar->mySonarMTXBoardType, "mtx");
     sprintf(sonar->mySonarMTXBoardPortType, "serial422");
+#ifdef WIN32
+	  sprintf(sonar->mySonarMTXBoardPort, ArUtil::COM5);
+#else
     sprintf(sonar->mySonarMTXBoardPort, "/dev/ttyUSB2");
+#endif
     sonar->mySonarMTXBoardBaud = 115200;
     sonar->mySonarMTXBoardAutoConn = true;
-    sonar->myNumSonarTransducers = 8;
+    sonar->myNumSonarTransducers = 4;
+    sonar->mySonarDelay = 2;
+    sonar->mySonarGain = 10;
+    sonar->mySonarDetectionThreshold = 25;
+    sonar->mySonarMaxRange = 4335;
+    sprintf(sonar->mySonarMTXBoardPowerOutput, "Sonar_1_Power");
   }
  
   /*
@@ -2411,29 +2489,36 @@ AREXPORT ArRobotPioneerLX::ArRobotPioneerLX(const char *dir)
   {
     sprintf(sonar->mySonarMTXBoardType, "mtx");
     sprintf(sonar->mySonarMTXBoardPortType, "serial422");
-    //sprintf(sonar->mySonarMTXBoardPort, "/dev/ttyUSB2"); // <- what is the usb port?
+#ifdef WIN32
+    sprintf(sonar->mySonarMTXBoardPort, ArUtil::COM6);
+#else
+    sprintf(sonar->mySonarMTXBoardPort, "/dev/ttyUSB3");
+#endif
     sonar->mySonarMTXBoardBaud = 115200;
     sonar->mySonarMTXBoardAutoConn = false; 
     sonar->myNumSonarTransducers = 8;
   }
   */
 
-  myNumSonar = 8;
-  //               #   x    y  th
-  internalSetSonar(0, 324, 90, 16);
-  internalSetSonar(1, 331, 607, 10);
-  internalSetSonar(2, 331, -607, -10);
-  internalSetSonar(3, 324, -90, -16);
-  internalSetSonar(4, -316, -90, -164);
-  internalSetSonar(5, -325, -30, -175);
-  internalSetSonar(6, -325, 30, 175);
-  internalSetSonar(7, -316, 90, 164);
+  myNumSonar = 4;
+  myNumSonarUnits = 4;
+  //          sonar#     x    y    th board# unit# gain thresh   max
+  // Front:
+  internalSetSonar(0,  331,  61,   10,     1,    1,   0,   600,  400);
+  internalSetSonar(1,  331, -61,  -10,     1,    2,   0,   600,  400);
+  // back:
+  internalSetSonar(2, -317,  90,  164,     1,    3,   0,   500,  500);
+  internalSetSonar(3, -317, -90, -164,     1,    4,   0,   500,  500);
 
   if(BatteryMTXBoardData *bat = getBatteryMTXBoardData(1))
   {
     sprintf(bat->myBatteryMTXBoardType, "mtx");
     sprintf(bat->myBatteryMTXBoardPortType, "serial");
+#ifdef WIN32
+	sprintf(bat->myBatteryMTXBoardPort, ArUtil::COM4);
+#else
     sprintf(bat->myBatteryMTXBoardPort, "/dev/ttyUSB1");
+#endif
     bat->myBatteryMTXBoardBaud = 115200;
     bat->myBatteryMTXBoardAutoConn = true;
   }
@@ -2444,6 +2529,10 @@ AREXPORT ArRobotPioneerLX::ArRobotPioneerLX(const char *dir)
   myPTZParams[0].setConnect(true);
   myVideoParams[0].setType("vapix");   
   myVideoParams[0].setConnect(true);
+  myPTZParams[0].setAddress("192.168.0.90");
+  myVideoParams[0].setAddress("192.168.0.90");
+
+
 }
 
 /** @endcond INCLUDE_INTERNAL_ROBOT_PARAM_CLASSES */

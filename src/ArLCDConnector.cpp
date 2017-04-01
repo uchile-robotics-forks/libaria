@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -33,7 +34,13 @@ Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 #include "ArRobotConfigPacketReader.h"
 
 #include <sys/types.h>
+
+#ifdef WIN32
+#include <Windows.h>
+#else
 #include <dirent.h>
+#endif
+
 #include <ctype.h>
 
 /** @warning do not delete @a parser during the lifetime of this
@@ -80,6 +87,8 @@ AREXPORT ArLCDConnector::ArLCDConnector (
 }
 AREXPORT ArLCDConnector::~ArLCDConnector (void)
 {
+//  Aria::remParseArgsCB(&myParseArgsCB);
+//  Aria::remLogOptionsCB(&myLogOptionsCB);
 }
 /**
  * Parse command line arguments using the ArArgumentParser given in the ArLCDConnector constructor.
@@ -114,7 +123,6 @@ AREXPORT bool ArLCDConnector::parseArgs (void)
  **/
 AREXPORT bool ArLCDConnector::parseArgs (ArArgumentParser *parser)
 {
-
 
 	if (myParsedArgs)
 		return true;
@@ -576,7 +584,7 @@ AREXPORT bool ArLCDConnector::setupLCD (ArLCDMTX *lcd,
 		myRobot = myRobotConnector->getRobot();
 	std::map<int, LCDData *>::iterator it;
 	LCDData *lcdData = NULL;
-	const ArRobotParams *params;
+	//const ArRobotParams *params;
 	if ( (it = myLCDs.find (lcdNumber)) != myLCDs.end())
 		lcdData = (*it).second;
 	if (lcdData == NULL && lcd == NULL) {
@@ -1023,7 +1031,7 @@ AREXPORT bool ArLCDConnector::verifyFirmware (LCDData *LCDData)
 				//		"ArLCDConnector::verifyFirmware(%d) %d %c 0x%02x", LCDData->myNumber, data, data, data);
 			if ((LCDData->myConn->write((char *)data.c_str(), data.size())) == -1) {
 				ArLog::log(ArLog::Normal,
-						"ArLCDConnector::verifyFirmware(%d) Could not send data  size(%d) to LCD errno (%d)", LCDData->myNumber, sizeof(data), errno);
+						"ArLCDConnector::verifyFirmware(%d) Could not send data 0x%02x size(%d) to LCD errno (%d)", LCDData->myNumber, data.c_str(), data.size(), errno);
 				return false;
 			}
 
@@ -1073,10 +1081,35 @@ AREXPORT bool ArLCDConnector::verifyFirmware (LCDData *LCDData)
 }
 
 
+// TODO move searchForFile to ariaUtil
+#ifdef WIN32
+
+AREXPORT std::string ArLCDConnector::searchForFile(const char *dirname, const char *prefix, const char *suffix)
+{
+  // todo recurse into directories? (bool flag?)
+  std::string filepattern = std::string(dirname) + "\\" + prefix + "*" + suffix;
+  printf("ArLCDConnector searching for %s...\n", filepattern.c_str());
+  WIN32_FIND_DATA fileData;
+  HANDLE h = FindFirstFileEx(filepattern.c_str(), FindExInfoBasic, &fileData, FindExSearchNameMatch, NULL, 0);
+  if(h == INVALID_HANDLE_VALUE) 
+  {
+	  // nothing found
+	  return "";
+  }
+  printf("found %s.\n", fileData.cFileName);
+  FindClose(h);
+  return fileData.cFileName;
+}
+
+#else
+
 AREXPORT std::string ArLCDConnector::searchForFile(
 	const char *dirToLookIn, const char *prefix, const char *suffix)
 {
 
+#ifdef WIN32
+	return "";
+#else
   /***
   ArLog::log(ArLog::Normal, 
              "ArUtil::matchCase() dirToLookIn = \"%s\" fileName = \"%s\"",
@@ -1094,6 +1127,7 @@ AREXPORT std::string ArLCDConnector::searchForFile(
   }
   */
   
+
   // how this works is we start at the base dir then read through
   // until we find what the next name we need, if entry is a directory
   // and we're not at the end of our string list then we change into
@@ -1137,7 +1171,9 @@ AREXPORT std::string ArLCDConnector::searchForFile(
   //printf("!!!!!!!! %s", finding.c_str());
   closedir(dir);
   return "";
+#endif
 } 
+#endif
 
 AREXPORT void ArLCDConnector::turnOnPowerCB (int lcdNumber)
 {

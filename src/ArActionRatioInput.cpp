@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -88,7 +89,7 @@ AREXPORT void ArActionRatioInput::addToConfig(ArConfig *config,
 	      "The maximum speed we turn at when stopped (0 means robot's RotVelMax) (deg/sec)", 0),
   section, ArPriority::NORMAL);
   
-  if (myRobot->hasLatVel())
+  if (myRobot && myRobot->hasLatVel())
   {
     config->addParam(
 	    ArConfigArg("LatAtFullForwards", &myLatAtFullForwards,
@@ -118,7 +119,7 @@ AREXPORT void ArActionRatioInput::addToConfig(ArConfig *config,
 			"The percentage in the middle of the rotation direction to not drive (percent)", 0),
 	    section, ArPriority::EXPERT);
 
-  if (myRobot->hasLatVel())
+  if (myRobot && myRobot->hasLatVel())
   {
     config->addParam(
 	    ArConfigArg("LatDeadZone", &myLatDeadZone,

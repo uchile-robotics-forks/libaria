@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -23,6 +24,7 @@ Adept MobileRobots for information about a commercial version of ARIA at
 robots@mobilerobots.com or 
 Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 */
+
 #include "Aria.h"
 
 void task(ArRobotJoyHandler *j)
@@ -38,16 +40,32 @@ void task(ArRobotJoyHandler *j)
     ArLog::log(ArLog::Normal, "no joystick data.");
 }
 
+bool joystickPacket(ArRobotPacket *packet)
+{
+  if (packet->getID() != 0xF8)
+    return false;
+  ArLog::log(ArLog::Normal, "logRobotJoystick: Got a joystick packet.");
+  return false; // false allows other handlers to get this packet, if this handler was inserted before them.
+}
+  
+
 int main(int argc, char **argv)
 {
   Aria::init();
+  ArLog::init(ArLog::StdErr, ArLog::Normal);
   ArArgumentParser parser(&argc, argv);
   parser.loadDefaultArguments();
   ArRobot robot;
 
-  ArRobotJoyHandler j(&robot);
 
-  robot.addUserTask("joylog", 5, new ArGlobalFunctor1<ArRobotJoyHandler*>(&task, &j));
+
+   // Use this to request joystick data and store it in an ArRobotJoyHandler object, and print that data every task cycle.
+   ArRobotJoyHandler j(&robot);
+   robot.addUserTask("joylog", 5, new ArGlobalFunctor1<ArRobotJoyHandler*>(&task, &j));
+
+  // Use this to log whether we got the packet or not
+  robot.addPacketHandler(new ArGlobalRetFunctor1<bool, ArRobotPacket*>(&joystickPacket), ArListPos::FIRST);
+//  robot.comInt(ArCommands::JOYINFO, 2);
 
   // Connect to the robot, get some initial data from it such as type and name,
   // and then load parameter files for this robot.

@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -135,37 +136,93 @@ bool imuPacketHandler(ArRobotPacket* packet) {
 
 int main(int argc, char **argv) {
   Aria::init();
-  ArLog::init(ArLog::StdOut, ArLog::Normal, "", true);
   ArArgumentParser parser(&argc, argv);
-  ArRobot *robot = new ArRobot;
-  ArSimpleConnector simpleConnector(&parser);
+  parser.loadDefaultArguments();
+  ArRobot robot;
+
+  ArRobotConnector robotConnector(&parser, &robot);
+  if(!robotConnector.connectRobot())
+  {
+    ArLog::log(ArLog::Terse, "imuExample: Could not connect to the robot.");
+    if(parser.checkHelpAndWarnUnparsed())
+    {
+        // -help not given
+        Aria::logOptions();
+        Aria::exit(1);
+    }
+  }
+
+  if (!Aria::parseArgs() || !parser.checkHelpAndWarnUnparsed())
+  {
+    Aria::logOptions();
+    Aria::exit(1);
+  }
+
+  ArLog::log(ArLog::Normal, "imuExample: Connected to robot.");
+
   ArKeyHandler keyHandler;
   Aria::setKeyHandler(&keyHandler);
-  robot->attachKeyHandler(&keyHandler);
+  robot.attachKeyHandler(&keyHandler);
   
-  parser.loadDefaultArguments();
-  if (!simpleConnector.parseArgs() || !parser.checkHelpAndWarnUnparsed(1)) {
-    simpleConnector.logOptions();
-    keyHandler.restore();
-    Aria::exit(1);
-  }
-  if (!simpleConnector.connectRobot(robot)) {
-    ArLog::log(ArLog::Terse, "Error connecting to robot.");
-    Aria::shutdown();
-    keyHandler.restore();
-    Aria::exit(1);
-  }
-  ArLog::log(ArLog::Normal, "Connected to robot.");
+  // Add imuPacketHandler() as packet handler function 
   ArGlobalRetFunctor1<bool, ArRobotPacket *> myImuPacketHandler(&imuPacketHandler);
-  robot->addPacketHandler(&myImuPacketHandler, ArListPos::FIRST);
-  robot->runAsync(true);
+  robot.addPacketHandler(&myImuPacketHandler, ArListPos::FIRST);
+
+  // Run robot cycle in background thread
+  robot.runAsync(true);
   ArUtil::sleep(500);
-  robot->lock();
-  robot->comInt(26, 2);  // request IMU packets continuously
-  ArLog::log(ArLog::Normal, "Requested IMU packets, waiting...");
-  robot->unlock();
-  robot->waitForRunExit();
-  Aria::shutdown();
-  exit(0);
+
+  // Check whether robot firmware thinks it has an IMU
+  robot.lock();
+  /*
+  if (!robot.getOrigRobotConfig()->getHasGyro())
+  {
+    ArLog::log(ArLog::Terse, "imuExample: Robot firmware indicates gyro/imu disabled! (See HasGyro and/or GyroType parameter)");
+    robot.unlock();
+    Aria::exit(1);
+    return 1;
+  }
+  */
+  int gyroType = robot.getOrigRobotConfig()->getGyroType();
+  const char *gyroTypeDescr = "UNRECOGNIZED VALUE";
+  switch(gyroType)
+  {
+    case 0:
+      gyroTypeDescr = "Disabled/No Gyro";
+      break;
+    case 1:
+      gyroTypeDescr = "Pioneer3 Gyro Data";
+      break;
+    case 2:
+      gyroTypeDescr = "Pioneer3 Gyro Auto";
+      break;
+    case 3:
+      gyroTypeDescr = "Seekur/SeekurJr Single Axis Gyro";
+      break;
+    case 4:
+      gyroTypeDescr = "Seekur/SeekurJr IMU";
+      break;
+    default:
+      ArLog::log(ArLog::Normal, "imuExample: Unrecognized GyroType value %d!", gyroType);
+  }
+  ArLog::log(ArLog::Normal, "imuExample: Robot firmware reports GyroType=%d (%s)");
+  if(gyroType != 4)
+  {
+    ArLog::log(ArLog::Terse, "imuExample: Robot firmware configuration paramater GyroType=%d (%s). Cannot get IMU data with this GyroType, need GyroType 4.", gyroType, gyroTypeDescr);
+    robot.unlock();
+    Aria::exit(1);
+    return 1;
+  }
+  robot.unlock();
+
+  // request IMU packets continuously
+  robot.lock();
+  robot.comInt(26, 2);  
+  ArLog::log(ArLog::Normal, "imuExample: Requested IMU packets, waiting...");
+  robot.unlock();
+
+  // Wait for disconnect and exit
+  robot.waitForRunExit();
+  Aria::exit(0);
 }
 			 

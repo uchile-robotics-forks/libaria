@@ -10,21 +10,31 @@
  * ArServerHandlerCommMonitor defines network packet handlers that simply verify
  * the communication between the robot and server.  
  * 
- * This class handles the following requests:
+ * This class sends the following broadcast messages to clients at regular
+ * intervals:
  *  <ul>
  *    <li>heartbeatTcp:  Packet broadcast (TCP) periodically to confirm that
  *                       the server is alive.</li>
  *    <li>heartbeatUdp:  Packet broadcast (UDP) periodically to confirm that 
  *                       the server is alive.</li>
+ *  </ul>
+
+ * Clients should respond with the following:
+ *  <ul>
+ *    <li>ackCommTcp:    Command to acknowledge two-way communication over TCP.
+ *                       An empty packet is returned.</li>
+ *    <li>ackCommUdp:    Command to acknowledge two-way communication over UDP.
+ *                       An empty packet is returned.</li>
+ *  </ul>
+ *
+ * Clients may send the following requests:
+ * <ul>
  *    <li>getHeartbeatInterval: Command to return the expected heartbeat interval.
  *                              Packet contains:
  *                              <ol>
  *                              <li>uByte4 : Interval (msecs)</li>
  *                              </ol>
- *    <li>ackCommTcp:    Command to acknowledge two-way communication over TCP.
- *                       An empty packet is returned.</li>
- *    <li>ackCommUdp:    Command to acknowledge two-way communication over UDP.
- *                       An empty packet is returned.</li>
+
  *  </ul>
 **/
 class ArServerHandlerCommMonitor 

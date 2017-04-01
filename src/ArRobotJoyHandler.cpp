@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -23,15 +24,18 @@ Adept MobileRobots for information about a commercial version of ARIA at
 robots@mobilerobots.com or 
 Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 */
+
 #include "ArExport.h"
 #include "ariaOSDef.h"
 #include "ArRobotJoyHandler.h"
 #include "ArRobot.h"
 #include "ArCommands.h"
+#include "ariaInternal.h"
 
 AREXPORT ArRobotJoyHandler::ArRobotJoyHandler(ArRobot *robot) : 
     myHandleJoystickPacketCB(this, &ArRobotJoyHandler::handleJoystickPacket),
-    myConnectCB(this, &ArRobotJoyHandler::connectCallback)
+    myConnectCB(this, &ArRobotJoyHandler::connectCallback),
+    myStopPacketsCB(this, &ArRobotJoyHandler::stopPackets)
 {
   myRobot = robot;
 
@@ -62,12 +66,21 @@ AREXPORT ArRobotJoyHandler::~ArRobotJoyHandler()
 {
   myRobot->remConnectCB(&myConnectCB);
   myRobot->remPacketHandler(&myHandleJoystickPacketCB);
+  stopPackets();
+  myRobot->remDisconnectNormallyCB(&myStopPacketsCB);
+  Aria::remExitCallback(&myStopPacketsCB);
 }
-
 
 AREXPORT void ArRobotJoyHandler::connectCallback(void)
 {
+  myRobot->addDisconnectNormallyCB(&myStopPacketsCB);
+  Aria::addExitCallback(&myStopPacketsCB);
   myRobot->comInt(ArCommands::JOYINFO, 2);
+}
+
+void ArRobotJoyHandler::stopPackets()
+{
+  myRobot->comInt(ArCommands::JOYINFO, 0);
 }
 
 AREXPORT bool ArRobotJoyHandler::handleJoystickPacket(ArRobotPacket *packet)

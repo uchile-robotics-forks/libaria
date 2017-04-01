@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -136,7 +137,7 @@ public:
   /// robot as a Sensor Interpretation task.
   AREXPORT virtual void setRobot(ArRobot *robot);
 
-	AREXPORT int getBoardNum(void)
+	int getBoardNum(void)
 		{ return myBoardNum; }
 
   /// Sets the device this instance receives packets from
@@ -155,8 +156,8 @@ public:
 	/// Connect used for debug replay
   AREXPORT virtual bool fakeConnect();
   AREXPORT virtual bool disconnect(void);
-  AREXPORT virtual bool isConnected(void) { return myIsConnected; }
-	AREXPORT virtual bool isTryingToConnect (void)
+  virtual bool isConnected(void) { return myIsConnected; }
+	virtual bool isTryingToConnect (void)
 	{
 		if (myStartConnect)
 			return true;
@@ -169,17 +170,17 @@ public:
   AREXPORT void log(void);
 
   /// Lock this device
-  AREXPORT virtual int lockDevice() { return(myDeviceMutex.lock());}
+  virtual int lockDevice() { return(myDeviceMutex.lock());}
   /// Try to lock this device
-  AREXPORT virtual int tryLockDevice() {return(myDeviceMutex.tryLock());}
+  virtual int tryLockDevice() {return(myDeviceMutex.tryLock());}
   /// Unlock this device
-  AREXPORT virtual int unlockDevice() {return(myDeviceMutex.unlock());}
+  virtual int unlockDevice() {return(myDeviceMutex.unlock());}
 
   AREXPORT virtual const char *getName(void) const;
 
   AREXPORT virtual const char *getNameWithBoard(void) const;
 
-  AREXPORT void	setInfoLogLevel(ArLog::LogLevel infoLogLevel)
+  void	setInfoLogLevel(ArLog::LogLevel infoLogLevel)
   { myInfoLogLevel = infoLogLevel; }
 
   /// Gets the default port type for the sonar
@@ -189,7 +190,7 @@ public:
   const char *getDefaultTcpPort(void) { return myDefaultTcpPort.c_str(); }
 
   /// Sets the numter of seconds without a response until connection assumed lost
-  AREXPORT virtual void setConnectionTimeoutSeconds(double seconds)
+  virtual void setConnectionTimeoutSeconds(double seconds)
     { ArLog::log(ArLog::Normal, 
 		 "%s::setConnectionTimeoutSeconds: Setting timeout to %g secs", 
 		 getName(), seconds);
@@ -209,6 +210,7 @@ public:
   // reading was received
   AREXPORT virtual void internalGotReading(void);
 
+protected:
   AREXPORT bool sendAlive();
   AREXPORT bool sendReset();
   AREXPORT bool sendStart();
@@ -241,6 +243,7 @@ public:
   AREXPORT bool requestFirmwareVersion();
   AREXPORT bool queryFirmwareVersion();
 
+public:
   /// Adds a callback for when disconnection happens because of an error
   void addDisconnectOnErrorCB(ArFunctor *functor, 
 			     int position = 51) 
@@ -269,15 +272,20 @@ public:
 	*/
   /// 
 	int getBoardDetectionThreshold(void) const
-		{ return myBoardDetectionThreshold; }
-  /// 
+  { 
+    return myBoardDetectionThreshold; 
+  }
+
 	int getBoardMaxRange(void) const
-		{ return myBoardMaxRange; }
+  { 
+    return myBoardMaxRange; 
+  }
 
 	bool getBoardUseForAutonomousDriving(void) const
-		{ return myBoardUseForAutonomousDriving; }
-
-  /// 
+	{ 
+    return myBoardUseForAutonomousDriving; 
+  }
+ 
 	int getUnitMapping(int unit) const
 		{
 		std::map<int, std::map<int, int> >::const_iterator iter = 
@@ -287,7 +295,8 @@ public:
 		else {
 			std::map<int, int>unitMap = iter->second;
 			return unitMap[SONAR_MAPPING];
-		} }
+		} 
+  }
 
   /// 
 	int getUnitX(int unit) const
@@ -299,7 +308,8 @@ public:
 		else {
 			std::map<int, int>unitMap = iter->second;
 			return unitMap[SONAR_X];
-		} }
+		} 
+  }
 
   /// 
 	int getUnitY(int unit) const
@@ -311,7 +321,8 @@ public:
 		else {
 			std::map<int, int>unitMap = iter->second;
 			return unitMap[SONAR_Y];
-		} }
+		} 
+  }
 
   /// 
 	int getUnitTh(int unit) const
@@ -323,7 +334,8 @@ public:
 		else {
 			std::map<int, int>unitMap = iter->second;
 			return unitMap[SONAR_TH];
-		} }
+		} 
+  }
 
   /// 
 	int getUnitGain(int unit) const
@@ -335,7 +347,8 @@ public:
 		else {
 			std::map<int, int>unitMap = iter->second;
 			return unitMap[SONAR_GAIN];
-		} }
+    } 
+  }
 
   /// 
 	int getUnitDetectionThres(int unit) const
@@ -347,7 +360,8 @@ public:
 		else {
 			std::map<int, int>unitMap = iter->second;
 			return unitMap[SONAR_DETECTION_THRES];
-		} }
+		} 
+  }
 
   /// 
 	/*
@@ -373,7 +387,8 @@ public:
 		else {
 			std::map<int, int>unitMap = iter->second;
 			return unitMap[SONAR_THRES_CLOSE];
-		} }
+    } 
+  }
 
   /// 
 	int getUnitThresMed(int unit) const
@@ -382,10 +397,12 @@ public:
 				mySonarMap.find(unit);
 		if (iter == mySonarMap.end()) 
 			return -1;
-		else {
+		else 
+    {
 			std::map<int, int>unitMap = iter->second;
 			return unitMap[SONAR_THRES_MED];
-		} }
+		} 
+  }
 
   /// 
 	int getUnitThresFar(int unit) const
@@ -394,37 +411,56 @@ public:
 				mySonarMap.find(unit);
 		if (iter == mySonarMap.end()) 
 			return -1;
-		else {
+		else 
+    {
 			std::map<int, int>unitMap = iter->second;
 			return unitMap[SONAR_THRES_FAR];
-		} }
+		} 
+  }
 #endif
-  /// 
+ 
 	int getUnitLastReading(int unit) const
 		{
 		std::map<int, std::map<int, int> >::const_iterator iter = 
 				mySonarMap.find(unit);
 		if (iter == mySonarMap.end()) 
 			return -1;
-		else {
+		else 
+    {
 			std::map<int, int>unitMap = iter->second;
 			return unitMap[SONAR_LAST_READING];
-		} }
+		} 
+  }
 
 	int getFirmwareVersion(void) const
-		{ return myFirmwareVersion; }
+	{ 
+    return myFirmwareVersion; 
+  }
 
-	bool turnOnTransducers();
+	AREXPORT bool turnOnTransducers();
 
-	bool turnOffTransducers();
+	AREXPORT bool turnOffTransducers();
 
-	bool disableForAutonomousDriving();
+	AREXPORT bool disableForAutonomousDriving();
+
+  void setPacketsSentTracking(bool v = true) {
+    mySendTracking = v;
+    mySendTrackingSet = true;
+    if (mySender)
+      mySender->setTracking(true);
+  }
+
+  void setPacketsReceivedTracking(bool v = true) {
+    myRecvTracking = v;
+    myRecvTrackingSet = true;
+    if (myReceiver) 
+       myReceiver->setTracking(true);
+  }
 
 enum Headers {
 	HEADER1=0xfa,
-	//HEADER2=0xfb
 	HEADER2=0xf5 
-	};
+};
 
 
 
@@ -535,10 +571,9 @@ enum Commands {
 	
 	bool mySendTracking;
 	bool myRecvTracking;
+  bool mySendTrackingSet;
+  bool myRecvTrackingSet;
 
-  ArLog::LogLevel myLogLevel;
-
-  //ArSonarMTXPacketReceiver myReceiver;
   ArRobotPacketReceiver *myReceiver;
   ArRobotPacketSender *mySender;
 
@@ -547,8 +582,7 @@ enum Commands {
 	ArMutex myDeviceMutex;
 	
   ArLog::LogLevel myInfoLogLevel;
-	
-  //std::list<ArSonarMTXPacket *> myPackets;
+
   std::list<ArRobotPacket *> myPackets;
 
 	int myFirmwareVersion;

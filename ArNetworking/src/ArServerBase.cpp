@@ -47,7 +47,8 @@ AREXPORT ArServerBase::ArServerBase(bool addAriaExitCB,
 				    bool logPasswordFailureVerbosely,
 				    bool allowSlowPackets,
 				    bool allowIdlePackets,
-				    int maxClientsAllowed) :
+				    int maxClientsAllowed, 
+				    int warningTimeMSec) :
   myProcessPacketCB(this, &ArServerBase::processPacket),
   mySendUdpCB(this, &ArServerBase::sendUdp),
   myAriaExitCB(this, &ArServerBase::close),
@@ -74,6 +75,7 @@ AREXPORT ArServerBase::ArServerBase(bool addAriaExitCB,
 	  "ArServerBase::myIdleCallbacksMutex");
   myBackupTimeoutMutex.setLogName("ArServerBase::myBackupTimeoutMutex");
   
+
   if (serverName != NULL && serverName[0] > 0)
     myServerName = serverName;
   else
@@ -82,6 +84,9 @@ AREXPORT ArServerBase::ArServerBase(bool addAriaExitCB,
   myLogPrefix = myServerName + "Base: ";
   myDebugLogging = false;
   myVerboseLogLevel = ArLog::Verbose;
+
+  myTimeChecker.setName(myServerName.c_str());
+  myTimeChecker.setDefaultMSecs(warningTimeMSec);
 
   setThreadName(myServerName.c_str());
   myTcpPort = 0;
@@ -105,7 +110,15 @@ AREXPORT ArServerBase::ArServerBase(bool addAriaExitCB,
   myUsingOwnNumClients = true;
   myNumClients = 0;
   
-  myLoopMSecs = 1;
+  myLoopMSecs = 10;
+  /*
+  Aria::getConfig()->addParam(
+	  ArConfigArg("ArServerBase_MSecToSleepInLoop",
+		      &myLoopMSecs,
+		      "The number of MS to sleep in the loop (default 1)", 1),
+	  "Misc Testing", 
+	  ArPriority::EXPERT);
+  */
 
   if (slaveServer)
   {
@@ -866,18 +879,28 @@ AREXPORT void ArServerBase::loopOnce(void)
   //std::list<ArServerClient *> removeList;
   ArServerClient *client;
 
+  myTimeChecker.start();
+
   myDataMutex.lock();  
+
+  myTimeChecker.check("lock");
+
   if (!myOpened)
   {
     myDataMutex.unlock();
+    myTimeChecker.finish();
     return;
   }
   myDataMutex.unlock();
 
   acceptTcpSockets();
 
+  myTimeChecker.check("acceptTcpSockets");
+
   if (!myTcpOnly)
     myUdpReceiver.readData();
+
+  myTimeChecker.check("receiveUDPData");
 
   if (myProcessingSlowIdleMutex.tryLock() == 0)
   {
@@ -893,6 +916,9 @@ AREXPORT void ArServerBase::loopOnce(void)
     myProcessingSlowIdleMutex.unlock();
   }
 
+  myTimeChecker.check("addedClients");
+
+
   bool needIdleProcessing = idleProcessingPending();
   if (needIdleProcessing != myLastIdleProcessingPending)
   {
@@ -905,7 +931,11 @@ AREXPORT void ArServerBase::loopOnce(void)
     myLastIdleProcessingPending = needIdleProcessing;
   }
 
+  myTimeChecker.check("idleProcessing");
+
   myBackupTimeoutMutex.lock();
+
+  myTimeChecker.check("backupTimeoutLock");
 
   double backupTimeout = myBackupTimeout;
   bool newBackupTimeout = myNewBackupTimeout;
@@ -913,6 +943,7 @@ AREXPORT void ArServerBase::loopOnce(void)
 
   myBackupTimeoutMutex.unlock();
 
+  myTimeChecker.check("backupTimeoutUnlock");
 
   bool haveSlowPackets = false;
   bool haveIdlePackets = false;
@@ -947,6 +978,8 @@ AREXPORT void ArServerBase::loopOnce(void)
       
   }
 
+  myTimeChecker.check("tcpCallback");
+
   myHaveSlowPackets = haveSlowPackets;
   myHaveIdlePackets = haveIdlePackets;
 
@@ -965,6 +998,9 @@ AREXPORT void ArServerBase::loopOnce(void)
     if (myNumClients > myMostClients)
       myMostClients = myNumClients;
   }
+
+
+  myTimeChecker.check("numClientsAccounting");
 
   //printf("Before...\n");
   if (myProcessingSlowIdleMutex.tryLock() == 0)
@@ -994,16 +1030,23 @@ AREXPORT void ArServerBase::loopOnce(void)
     myProcessingSlowIdleMutex.unlock();
   }
 
+  myTimeChecker.check("removeClients");
+
   // now let the clients send off their packets
   for (it = myClients.begin(); it != myClients.end(); ++it)
   {
     client = (*it);
     client->handleRequests();
   }
+
+  myTimeChecker.check("handleRequests");
+
   // need a recursive lock before we can lock here but we should be
   //okay without a lock here (and have been for ages)
   //myClientsMutex.unlock();
   myCycleCallbacksMutex.lock();
+
+  myTimeChecker.check("cycleCallbackLock");
   // call cycle callbacks
   for(std::list<ArFunctor*>::const_iterator f = myCycleCallbacks.begin();
           f != myCycleCallbacks.end(); f++) 
@@ -1011,6 +1054,9 @@ AREXPORT void ArServerBase::loopOnce(void)
     if(*f) (*f)->invoke();
   }
   myCycleCallbacksMutex.unlock();
+
+  myTimeChecker.check("cycleCallbacks");
+  myTimeChecker.finish();
 }
 
 AREXPORT void ArServerBase::processPacket(ArNetPacket *packet, struct sockaddr_in *sin)

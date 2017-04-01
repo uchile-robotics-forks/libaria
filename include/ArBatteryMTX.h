@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -152,7 +153,7 @@ public:
 		{ return myErrorFlags; }
 
   bool onCharger(void) const 
-    { return myOnCharger; }
+    { return (myStatusFlags & STATUS_ON_CHARGER); }
   ArRobot::ChargeState getChargeState(void) const
     { return myChargeState; }
   int getChargeStateAsInt(void) const
@@ -328,6 +329,7 @@ public:
     STATUS_BALANCING_ENGAGED=0x0004,
     STATUS_CHARGER_ON=0x0008,
     STATUS_BATTERY_POWERING_OFF=0x0010,
+    /// MPL adding the rest of these since I need one of 'em
     STATUS_MASTER_SWITCH_ON=0x0020,
     STATUS_CHARGE_SWITCH_ON=0x0040,
     STATUS_COMMANDED_SHUTDOWN=0x0080,
@@ -402,7 +404,6 @@ protected:
   bool myTryingToConnect;
   bool myStartConnect;
 
-  bool myOnCharger;
   ArRobot::ChargeState myChargeState;
 
 	int myBoardNum;
@@ -528,7 +529,7 @@ enum Sizes {
   
 	unsigned short myRawChargeEstimate;	
   double myChargeEstimate;
-	unsigned short myRawCurrentDraw;
+	short myRawCurrentDraw;
   double myCurrentDraw;
 	unsigned short myRawPackVoltage;
   double myPackVoltage;

@@ -3,7 +3,6 @@
 	ProjectType="Visual C++"
 	Version="9.00"
 	Name="joydriveActionExample"
-	ProjectGUID="{7E142B72-A049-4AB6-AB31-AEA652955B02}"
 	TargetFrameworkVersion="131072"
 	>
 	<Platforms>
@@ -17,7 +16,7 @@
 		<Configuration
 			Name="Debug|Win32"
 			OutputDirectory="..\bin"
-			IntermediateDirectory="..\obj\$(ConfigurationName)-VC9"
+			IntermediateDirectory="..\obj\$(ConfigurationName)-VC10"
 			ConfigurationType="1"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
@@ -71,7 +70,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="ws2_32.lib winmm.lib AriaDebugVC9.lib  "
+				AdditionalDependencies="ws2_32.lib winmm.lib AriaDebugVC10.lib  "
 				Version="1.0"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
@@ -108,7 +107,7 @@
 		<Configuration
 			Name="Release|Win32"
 			OutputDirectory="..\bin"
-			IntermediateDirectory="..\obj\$(ConfigurationName)-VC9"
+			IntermediateDirectory="..\obj\$(ConfigurationName)-VC10"
 			ConfigurationType="1"
 			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
@@ -162,7 +161,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="ws2_32.lib winmm.lib AriaVC9.lib  "
+				AdditionalDependencies="ws2_32.lib winmm.lib AriaVC10.lib  "
 				Version="1.0"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"

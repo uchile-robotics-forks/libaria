@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -33,6 +34,7 @@ Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
 #include "ArSonarConnector.h"
 #include "ArBatteryConnector.h"
 //#include "ArLCDConnector.h"
+#include <assert.h>
 
 
 /** @warning do not delete @a parser during the lifetime of this
@@ -49,11 +51,12 @@ Adept MobileRobots, 10 Columbia Drive, Amherst, NH 03031; +1-603-881-7960
  * connector objects for
  * components such as sonar and battery.  (MTX-series robots have separate
  * connections to components such as battery, sonar, etc. Other robots do
- * not require this.)
+ * not require this.)  If you wish to disconnect all components including the robot, call
+ * disconnectAll(); Use ArRobot::disconnect() to disconnect from just
+ * the robot.
  */
 AREXPORT ArRobotConnector::ArRobotConnector(
-	ArArgumentParser *parser, ArRobot *robot, bool autoParseArgs, bool
-connectAllComponents) :
+	ArArgumentParser *parser, ArRobot *robot, bool autoParseArgs, bool connectAllComponents) :
   myParseArgsCB(this, &ArRobotConnector::parseArgs),
   myLogOptionsCB(this, &ArRobotConnector::logOptions),
   myBatteryConnector(NULL),
@@ -89,8 +92,9 @@ connectAllComponents) :
   {
     myBatteryConnector = new ArBatteryConnector(myParser, myRobot, this);
 //    myLCDConnector = new ArLCDConnector(myParser, myRobot, this);
-    mySonarConnector = new ArSonarConnector(myParser, myRobot, this);
+    mySonarConnector = new ArSonarConnector(myParser, myRobot, this, true/*autoParseArgs*/, ArLog::Verbose);
   }
+
 }
 
 AREXPORT ArRobotConnector::~ArRobotConnector(void)
@@ -101,6 +105,8 @@ AREXPORT ArRobotConnector::~ArRobotConnector(void)
 //    delete myLCDConnector;
   if(mySonarConnector)
     delete mySonarConnector;
+//  Aria::remParseArgsCB(&myParseArgsCB);
+//  Aria::remLogOptionsCB(&myLogOptionsCB);
 }
 
 /**
@@ -113,7 +119,10 @@ AREXPORT ArRobotConnector::~ArRobotConnector(void)
 
 AREXPORT bool ArRobotConnector::parseArgs(void)
 {
-  return parseArgs(myParser);
+  if(myParser)
+    return parseArgs(myParser);
+  else
+    return false;
 }
 
 /**
@@ -355,6 +364,7 @@ AREXPORT bool ArRobotConnector::setupRobot(ArRobot *robot)
     myRobotTcpConn.setPort("localhost", myRemoteRobotTcpPort);
 
   // see if we can get to the simulator  (true is success)
+  ArLog::log(ArLog::Normal, "Connnecting to robot using TCP connection to %s...", myRobotTcpConn.getPortName());// , myRemoteHost, myRobotTcpConn.getPort());
   if (myRobotTcpConn.openSimple())
   {
     robot->setDeviceConnection(&myRobotTcpConn);
@@ -397,6 +407,20 @@ AREXPORT bool ArRobotConnector::setupRobot(ArRobot *robot)
   return true;
 }
 
+AREXPORT bool ArRobotConnector::disconnectAll()
+{
+  bool r = true;
+  if(myBatteryConnector)
+    r = r && myBatteryConnector->disconnectBatteries();
+  if(mySonarConnector)
+    r = r && mySonarConnector->disconnectSonars();
+  //if(myLCDConnector)
+  // r = r && myLCDConnector->disconnectLCDs();
+  if(myRobot)
+    r = r && myRobot->disconnect();
+  return r;
+}
+
 /** Prepares the given ArRobot object for connection, then begins
  * a blocking connection attempt.
  * If you wish to simply prepare the ArRobot object, but not begin
@@ -407,7 +431,6 @@ AREXPORT bool ArRobotConnector::connectRobot(void)
   if(! connectRobot(myRobot) )
     return false;
 
-  myRobot->comInt(ArCommands::JOYINFO, 0); // make sure we start with Joystick packets disabled (Pioneer starts with them disabled, but MTX starts with them enabled, even if program doesn't request them)
 
   if(myConnectAllComponents)
   {
@@ -440,6 +463,7 @@ AREXPORT bool ArRobotConnector::connectRobot(void)
       }
 */
 
+assert(mySonarConnector);
       if(mySonarConnector)
       {
         ArLog::log(ArLog::Normal, "ArRobotConnector: Connecting to MTX sonar (if neccesary)...");
@@ -449,7 +473,7 @@ AREXPORT bool ArRobotConnector::connectRobot(void)
           return false;
         }
         
-      }
+      } 
     }
   }
 

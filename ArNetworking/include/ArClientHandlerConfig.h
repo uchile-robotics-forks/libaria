@@ -136,44 +136,44 @@ public:
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   // Packet Handlers
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+private: 
+  /// Handles the packet from the GetConfigBySectionsV4
+  void handleGetConfigBySectionsV4(ArNetPacket *packet);
+  
    /// Handles the packet from the GetConfigBySectionsV3
-  AREXPORT void handleGetConfigBySectionsV3(ArNetPacket *packet);
+  void handleGetConfigBySectionsV3(ArNetPacket *packet);
 
   /// Handles the packet from the GetConfigBySectionsV2
-  AREXPORT void handleGetConfigBySectionsV2(ArNetPacket *packet);
+  void handleGetConfigBySectionsV2(ArNetPacket *packet);
 
   /// Handles the packet from the GetConfigBySections
-  AREXPORT void handleGetConfigBySections(ArNetPacket *packet);
+  void handleGetConfigBySections(ArNetPacket *packet);
 
   /// Handles the packet from the GetConfigSectionFlags
-  AREXPORT void handleGetConfigSectionFlags(ArNetPacket *packet);
+  void handleGetConfigSectionFlags(ArNetPacket *packet);
 
   /// Handles the packet from the getConfig
-  AREXPORT void handleGetConfig(ArNetPacket *packet);
+  void handleGetConfig(ArNetPacket *packet);
 
   /// Handles the return packet from the setConfig (saveConfigToServer)
-  AREXPORT void handleSetConfig(ArNetPacket *packet);
+  void handleSetConfig(ArNetPacket *packet);
 
   /// Handles the return packet from the setConfigBySections (saveConfigToServer)
-  AREXPORT void handleSetConfigBySections(ArNetPacket *packet);
+  void handleSetConfigBySections(ArNetPacket *packet);
 
   /// Handles the return packet from the setConfigBySectionsV2 (saveConfigToServer)
-  AREXPORT void handleSetConfigBySectionsV2(ArNetPacket *packet);
+  void handleSetConfigBySectionsV2(ArNetPacket *packet);
 
   /// Handles the return packet from getConfigDefaults
-  AREXPORT void handleGetConfigDefaults(ArNetPacket *packet);
+  void handleGetConfigDefaults(ArNetPacket *packet);
 
   /// Handles the return packet from getLastEditablePriority
-  AREXPORT void handleGetLastEditablePriority(ArNetPacket *packet);
+  void handleGetLastEditablePriority(ArNetPacket *packet);
 
-protected:
-
-  AREXPORT void handleGetConfigData(ArNetPacket *packet,
+  void handleGetConfigData(ArNetPacket *packet,
                                     bool isMultiplePackets,
                                     int version);
 
-
-protected:
 
   std::string myRobotName;
   std::string myLogPrefix;
@@ -203,6 +203,7 @@ protected:
 
   bool myIsQuiet;
 
+  ArFunctor1C<ArClientHandlerConfig, ArNetPacket *> myHandleGetConfigBySectionsV4CB;
   ArFunctor1C<ArClientHandlerConfig, ArNetPacket *> myHandleGetConfigBySectionsV3CB;
   ArFunctor1C<ArClientHandlerConfig, ArNetPacket *> myHandleGetConfigBySectionsV2CB;
   ArFunctor1C<ArClientHandlerConfig, ArNetPacket *> myHandleGetConfigBySectionsCB;

@@ -1,4 +1,4 @@
-# A simple $(MAKE)file to cause make to go look in the top directory. A simple
+# A simple Makefile to cause make to go look in the top directory. A simple
 # convenience.
 
 all: lib 

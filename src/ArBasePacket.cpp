@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -176,6 +177,26 @@ AREXPORT void ArBasePacket::resetRead(void)
   resetValid();
 }
 
+ArTypes::UByte2 ArBasePacket::getDataLength(void) const { 
+ 
+  // KMC 12/20/13 Do not allow negative values to be returned.  (They are basically 
+  // converted to an erroneous positive value by the UByte2.)
+  int len = myLength - myHeaderLength - myFooterLength; 
+  if (len >= 0) {
+    return len;
+  }
+  else {
+/****
+    ArLog::log(ArLog::Normal,
+               "ArBasePacket::getDataLength() negative myLength = %i, myHeaderLength = %i, myFooterLength = %i",
+               myLength,
+               myHeaderLength,
+               myFooterLength);
+***/
+    return 0;
+  }
+}
+
 /**
 Sets the packet length back to be the packets header length again
 */
@@ -297,6 +318,34 @@ AREXPORT void ArBasePacket::byte4ToBuf(ArTypes::Byte4 val)
 
 }
 
+AREXPORT void ArBasePacket::byte8ToBuf(ArTypes::Byte8 val)
+{
+  if (!hasWriteCapacity(8)) {
+    return;
+  }
+
+  unsigned char c;
+  c = (val >> 56) & 0xff;
+  memcpy(myBuf+myLength+7, &c, 1);
+  c = (val >> 48) & 0xff;
+  memcpy(myBuf+myLength+6, &c, 1);
+  c = (val >> 40) & 0xff;
+  memcpy(myBuf+myLength+5, &c, 1);
+  c = (val >> 32) & 0xff;
+  memcpy(myBuf+myLength+4, &c, 1);
+
+  c = (val >> 24) & 0xff;
+  memcpy(myBuf+myLength+3, &c, 1);
+  c = (val >> 16) & 0xff;
+  memcpy(myBuf+myLength+2, &c, 1);
+  c = (val >> 8) & 0xff;
+  memcpy(myBuf+myLength+1, &c, 1);
+  c = val & 0xff;
+  memcpy(myBuf+myLength, &c, 1);
+  myLength += 8;
+
+}
+
 AREXPORT void ArBasePacket::uByteToBuf(ArTypes::UByte val)
 {
   if (!hasWriteCapacity(1)) {
@@ -325,9 +374,61 @@ AREXPORT void ArBasePacket::uByte4ToBuf(ArTypes::UByte4 val)
   if (!hasWriteCapacity(4)) {
     return;
   }
-  // TODO make sure its put in LSB first.
+  
+  /*
+  MPL 2013_10_23 this doesn't match anything else with regards to how
+  it's happening, and while it didn't matter when we're just going
+  from x86 to x86 it may matter for others... if it causes problems
+  just put back the old code
+
   memcpy(myBuf+myLength, &val, 4);
   myLength += 4;
+  */
+
+  unsigned char c;
+  c = (val >> 24) & 0xff;
+  memcpy(myBuf+myLength+3, &c, 1);
+  c = (val >> 16) & 0xff;
+  memcpy(myBuf+myLength+2, &c, 1);
+  c = (val >> 8) & 0xff;
+  memcpy(myBuf+myLength+1, &c, 1);
+  c = val & 0xff;
+  memcpy(myBuf+myLength, &c, 1);
+  myLength += 4;
+}
+
+AREXPORT void ArBasePacket::uByte8ToBuf(ArTypes::UByte8 val)
+{
+  if (!hasWriteCapacity(8)) {
+    return;
+  }
+  /*
+    MPL 2013_10_23 this was how would have matched the old uByte4ToBuf
+    but since that didn't match anything else I changed it
+
+    memcpy(myBuf+myLength, &val, 8);
+    myLength += 8;
+  */
+
+  unsigned char c;
+  c = (val >> 56) & 0xff;
+  memcpy(myBuf+myLength+7, &c, 1);
+  c = (val >> 48) & 0xff;
+  memcpy(myBuf+myLength+6, &c, 1);
+  c = (val >> 40) & 0xff;
+  memcpy(myBuf+myLength+5, &c, 1);
+  c = (val >> 32) & 0xff;
+  memcpy(myBuf+myLength+4, &c, 1);
+
+  c = (val >> 24) & 0xff;
+  memcpy(myBuf+myLength+3, &c, 1);
+  c = (val >> 16) & 0xff;
+  memcpy(myBuf+myLength+2, &c, 1);
+  c = (val >> 8) & 0xff;
+  memcpy(myBuf+myLength+1, &c, 1);
+  c = val & 0xff;
+  memcpy(myBuf+myLength, &c, 1);
+  myLength += 8;
 }
 
 /**
@@ -487,6 +588,28 @@ AREXPORT ArTypes::Byte4 ArBasePacket::bufToByte4(void)
   return ret;
 }
 
+AREXPORT ArTypes::Byte8 ArBasePacket::bufToByte8(void)
+{
+  ArTypes::Byte8 ret=0;
+  unsigned char c1, c2, c3, c4, c5, c6, c7, c8;
+
+  if (isNextGood(8))
+  {
+    memcpy(&c1, myBuf+myReadLength, 1);
+    memcpy(&c2, myBuf+myReadLength+1, 1);
+    memcpy(&c3, myBuf+myReadLength+2, 1);
+    memcpy(&c4, myBuf+myReadLength+3, 1);
+    memcpy(&c5, myBuf+myReadLength+4, 1);
+    memcpy(&c6, myBuf+myReadLength+5, 1);
+    memcpy(&c7, myBuf+myReadLength+6, 1);
+    memcpy(&c8, myBuf+myReadLength+7, 1);
+    ret = ((ArTypes::Byte8)c1 & 0xff) | ((ArTypes::Byte8) c2 << 8) | ((ArTypes::Byte8) c3 << 16) | ((ArTypes::Byte8) c4 << 24) | ((ArTypes::Byte8) c5 << 32) | ((ArTypes::Byte8) c6 << 40) | ((ArTypes::Byte8) c7 << 48) | ((ArTypes::Byte8) c8 << 56);
+    myReadLength+=8;
+  }
+
+  return ret;
+}
+
 AREXPORT ArTypes::UByte ArBasePacket::bufToUByte(void)
 {
   ArTypes::UByte ret=0;
@@ -518,7 +641,9 @@ AREXPORT ArTypes::UByte2 ArBasePacket::bufToUByte2(void)
 
 AREXPORT ArTypes::UByte4 ArBasePacket::bufToUByte4(void)
 {
-  ArTypes::Byte4 ret=0;
+  /// MPL 2013_10_23 this was Byte4 not UByte4
+  //ArTypes::Byte4 ret=0;
+  ArTypes::UByte4 ret=0;
   unsigned char c1, c2, c3, c4;
 
   if (isNextGood(4))
@@ -529,6 +654,28 @@ AREXPORT ArTypes::UByte4 ArBasePacket::bufToUByte4(void)
     memcpy(&c4, myBuf+myReadLength+3, 1);
     ret = (c1 & 0xff) | (c2 << 8) | (c3 << 16) | (c4 << 24);
     myReadLength+=4;
+  }
+
+  return ret;
+}
+
+AREXPORT ArTypes::UByte8 ArBasePacket::bufToUByte8(void)
+{
+  ArTypes::UByte8 ret=0;
+  unsigned char c1, c2, c3, c4, c5, c6, c7, c8;
+
+  if (isNextGood(8))
+  {
+    memcpy(&c1, myBuf+myReadLength, 1);
+    memcpy(&c2, myBuf+myReadLength+1, 1);
+    memcpy(&c3, myBuf+myReadLength+2, 1);
+    memcpy(&c4, myBuf+myReadLength+3, 1);
+    memcpy(&c5, myBuf+myReadLength+4, 1);
+    memcpy(&c6, myBuf+myReadLength+5, 1);
+    memcpy(&c7, myBuf+myReadLength+6, 1);
+    memcpy(&c8, myBuf+myReadLength+7, 1);
+    ret = ((ArTypes::UByte8)c1 & 0xff) | ((ArTypes::UByte8)c2 << 8) | ((ArTypes::UByte8)c3 << 16) | ((ArTypes::UByte8)c4 << 24) | ((ArTypes::UByte8)c5 << 32) | ((ArTypes::UByte8)c6 << 40) | ((ArTypes::UByte8)c7 << 48) | ((ArTypes::UByte8) c8 << 56);
+    myReadLength+=8;
   }
 
   return ret;
@@ -595,6 +742,14 @@ AREXPORT void ArBasePacket::bufToStr(char *buf, int len)
   // Make absolutely sure that the string is null-terminated...
   buf[len - 1] = '\0';
 
+}
+
+/// Note the string obtained from the packet can have at most 512 characters.
+AREXPORT std::string ArBasePacket::bufToString()
+{
+  char buf[512];
+  bufToStr(buf, 512);
+  return buf;
 }
 
 /**

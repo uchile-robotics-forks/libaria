@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -70,17 +71,32 @@ void wanderMode(void)
 int main(int argc, char** argv)
 {
   Aria::init();
-  ArArgumentParser argParser(&argc, argv);
-  ArSimpleConnector con(&argParser);
+  ArArgumentParser parser(&argc, argv);
+  parser.loadDefaultArguments();
   ArRobot robot;
   ArSonarDevice sonar;
 
-  argParser.loadDefaultArguments();
-  if(!Aria::parseArgs() || !argParser.checkHelpAndWarnUnparsed())
+  // Connect to the robot, get some initial data from it such as type and name,
+  // and then load parameter files for this robot.
+  ArRobotConnector robotConnector(&parser, &robot);
+  if(!robotConnector.connectRobot())
+  {
+    ArLog::log(ArLog::Terse, "actionGroupExample: Could not connect to the robot.");
+    if(parser.checkHelpAndWarnUnparsed())
+    {
+        // -help not given
+        Aria::logOptions();
+        Aria::exit(1);
+    }
+  }
+
+  if (!Aria::parseArgs() || !parser.checkHelpAndWarnUnparsed())
   {
     Aria::logOptions();
-    return 1;
+    Aria::exit(1);
   }
+
+  ArLog::log(ArLog::Normal, "actionGroupExample: Connected to robot.");
 
   /* - the action group for teleoperation actions: */
   teleop = new ArActionGroup(&robot);
@@ -159,11 +175,6 @@ int main(int argc, char** argv)
   /* - connect to the robot, then enter teleoperation mode.  */
 
   robot.addRangeDevice(&sonar);
-  if(!con.connectRobot(&robot))
-  { 
-    ArLog::log(ArLog::Terse, "actionGroupExample: Could not connect to the robot.");
-    Aria::exit(1);
-  }
 
   robot.enableMotors();
   teleopMode();

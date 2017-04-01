@@ -28,6 +28,9 @@ class ArConfigArg;
  *    string: arg.getDisplayHint()      -- only if isDisplayHintParsed is set to true
  *    string: arg.getExtraExplanation() -- only if version >= 2
  *    byte: arg.getRestartLevel()       -- only if version >= 2
+ *
+ *    ubyte: arg.getIsSerializable()    -- only if version >= 4
+ *    string: "" | arg.getParentPathName()   -- only if version >= 4 , parent included only if isSingleParam set to true 
  * 
  *    &lt;arg values&gt; varies by arg type:
  *
@@ -78,7 +81,8 @@ public:
 	/// Constructor
 	AREXPORT ArClientArg(bool isDisplayHintParsed = false, 
                        ArPriority::Priority lastPriority = ArPriority::LAST_PRIORITY,
-                       int version = 1);
+                       int version = 1,
+                       bool isSingleParam = false); 
 	
 	/// Destructor
 	AREXPORT virtual ~ArClientArg();
@@ -87,8 +91,12 @@ public:
   /**
    * Currently, a parameter can only be sent if it is of type INT, DOUBLE,
    * STRING, BOOL, LIST, or a SEPARATOR.
+   * @param arg the ArConfigArg to be checked for "sendability"
+   * @param isIncludeSeparator a bool set to true if separators should be sent;
+   * (this is currently set to false for the text socket commands)
   **/
-  AREXPORT virtual bool isSendableParamType(const ArConfigArg &arg);
+  AREXPORT static bool isSendableParamType(const ArConfigArg &arg,
+                                           bool isIncludeSeparator = true);
 	
 	/// Unpacks the given network packet and stores the data in the config arg.
 	/**
@@ -98,7 +106,8 @@ public:
 	 * the packet; false if an error occurred and argOut is invalid
 	**/
 	AREXPORT virtual bool createArg(ArNetPacket *packet, 
-						                      ArConfigArg &argOut);
+						                      ArConfigArg &argOut,
+                                  std::string *parentPathNameOut = NULL);
 
 
 	/// Stores the given config arg into the network packet. 
@@ -109,7 +118,8 @@ public:
 	 * the packet; false if an error occurred and the packet is invalid
 	**/
   AREXPORT virtual bool createPacket(const ArConfigArg &arg,
-                                     ArNetPacket *packet);
+                                     ArNetPacket *packet,
+                                     const char *parentPathName = NULL);
 
 
 
@@ -147,8 +157,15 @@ public:
 	AREXPORT virtual bool argTextToBuf(const ArConfigArg &arg,
                                      ArNetPacket *packet);
 
-
   AREXPORT virtual bool addArgTextToPacket(const ArConfigArg &arg,
+                                           ArNetPacket *packet);
+
+  AREXPORT virtual bool addAncestorListToPacket(const std::list<ArConfigArg*> &ancestorList,
+                                                ArNetPacket *packet);
+
+  AREXPORT virtual bool addListBeginToPacket(ArConfigArg *parentArg,
+                                             ArNetPacket *packet);
+  AREXPORT virtual bool addListEndToPacket(ArConfigArg *parentArg,
                                            ArNetPacket *packet);
 
 protected:
@@ -160,10 +177,12 @@ protected:
   bool myIsDisplayHintParsed;
   ArPriority::Priority myLastPriority;
   int myVersion;
+  bool myIsSingleParam;
 
   char myBuffer[BUFFER_LENGTH];
   char myDisplayBuffer[BUFFER_LENGTH];
   char myExtraBuffer[BUFFER_LENGTH];
+  char myParentPathNameBuffer[BUFFER_LENGTH];
 
 }; // end class ArClientArgUtils
  

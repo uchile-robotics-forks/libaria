@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -40,6 +41,11 @@ class ArRobotPacket;
 
     Also note that x is usually rotational velocity (since it right/left),
     whereas Y is translational (since it is up/down).
+
+  When created, this class requests continuous joystick packets from the robot if already
+  connected, or if not, requests joystick packets upon robot connection.  In
+  requests that the joystick data be stopped upon normal robot disconnection, ARIA
+  program exit, or when this object is destroyed.
 
   @ingroup OptionalClasses
 **/
@@ -93,6 +99,10 @@ class ArRobotJoyHandler
   ArRetFunctor1C<bool, ArRobotJoyHandler,
       ArRobotPacket *> myHandleJoystickPacketCB;
   ArFunctorC<ArRobotJoyHandler> myConnectCB;
+
+  ArFunctorC<ArRobotJoyHandler> myStopPacketsCB;
+
+  void stopPackets();
 
 };
 

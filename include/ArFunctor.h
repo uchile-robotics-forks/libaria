@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -298,10 +299,10 @@ public:
 };
 
 
-/// Base class for functors with 5 parameters
+/// Base class for functors with 4 parameters
 /**
-   This is the base class for functors with 5 parameters. Code that has a
-   reference to a functor that takes 5 parameters should use this class
+   This is the base class for functors with 4 parameters. Code that has a
+   reference to a functor that takes 4 parameters should use this class
    name. This allows the code to know how to invoke the functor without
    knowing which class the member function is in.
    
@@ -354,7 +355,7 @@ public:
      @param p2 second parameter
      @param p3 third parameter
      @param p4 fourth parameter
-     @param p4 fifth parameter
+     @param p5 fifth parameter
  */
   virtual void invoke(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5) = 0;
 
@@ -498,8 +499,6 @@ public:
 };
 
 
-
-
 /// Base class for functors with a return value with 4 parameters
 /**
    This is the base class for functors with a return value and take 4
@@ -609,7 +608,7 @@ public:
      @param p2 second parameter
      @param p3 third parameter
      @param p4 fourth parameter
-     @param p4 fifth parameter
+     @param p5 fifth parameter
   */
   virtual Ret invokeR(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5) = 0;
 };
@@ -906,8 +905,6 @@ protected:
 
 
 
-
-
 /// Functor for a global function with 4 parameters
 /**
    This is a class for global functions which take 4 parameters. This ties
@@ -1186,7 +1183,7 @@ public:
 
   /// Set the default fifth parameter
   /**
-     @param p4 default fifth parameter
+     @param p5 default fifth parameter
   */
   virtual void setP5(P5 p5) {myP5=p5;}
 
@@ -1633,9 +1630,9 @@ protected:
 };
 
 
-/// Functor for a global function with 5 parameters and return value
+/// Functor for a global function with 4 parameters and return value
 /**
-   This is a class for global functions which take 5 parameters and return
+   This is a class for global functions which take 4 parameters and return
    a value. This ties a C style function pointer into the functor class
    hierarchy as a convience. Code that has a reference to this class
    and treat it as an ArFunctor can use it like any other functor.
@@ -1701,7 +1698,7 @@ public:
      @param p2 default second parameter
      @param p3 default third parameter
      @param p4 default fourth parameter
-	 @param p5 default fifth parameter
+     @param p5 default fifth parameter
  */
   ArGlobalRetFunctor5(Ret (*func)(P1, P2, P3, P4, P5), P1 p1, P2 p2, P3 p3, P4 p4, P5 p5) :
     myFunc(func), myP1(p1), myP2(p2), myP3(p3), myP4(p4), myP5(p5) {}
@@ -1778,7 +1775,7 @@ public:
 
   /// Set the default fifth parameter
   /**
-     @param p4 default fifth parameter
+     @param p5 default fifth parameter
   */
   virtual void setP5(P5 p5) {myP5=p5;}
 
@@ -2671,7 +2668,7 @@ ArFunctor5C(T &obj, void (T::*func)(P1, P2, P3, P4, P5), P1 p1, P2 p2, P3 p3, P4
 
   /// Set the default fifth parameter
   /**
-     @param p4 default fifth parameter
+     @param p5 default fifth parameter
   */
   virtual void setP5(P5 p5) {myP5=p5;}
 
@@ -3350,9 +3347,9 @@ protected:
 
 
 
-/// Functor for a member function with return value and 5 parameters
+/// Functor for a member function with return value and 4 parameters
 /**
-   This is a class for member functions which take 5 parameters and return
+   This is a class for member functions which take 4 parameters and return
    a value. This class contains the knowledge on how to call a member
    function on a particular instance of a class. This class should be
    instantiated by code that wishes to pass off a functor to another
@@ -3586,7 +3583,7 @@ public:
 
   /// Set the default fifth parameter
   /**
-     @param p4 default fifth parameter
+     @param p5 default fifth parameter
   */
   virtual void setP5(P5 p5) {myP5=p5;}
 
@@ -4048,8 +4045,6 @@ protected:
   P3 myP3;
 };
 
-
-
 /// Functor for a const member function with 4 parameters
 /**
    This is a class for const member functions which take 4
@@ -4251,9 +4246,9 @@ protected:
   P4 myP4;
 };
 
-/// Functor for a const member function with 5 parameters
+/// Functor for a const member function with 4 parameters
 /**
-   This is a class for const member functions which take 5
+   This is a class for const member functions which take 4
    parameters. This class contains the knowledge on how to call a
    const member function on a particular instance of a class. This
    class should be instantiated by code that wishes to pass off a
@@ -5296,7 +5291,7 @@ public:
      @param p2 default second parameter
      @param p3 default third parameter
      @param p4 default fourth parameter
-	 @param p5 default fifth parameter
+     @param p5 default fifth parameter
  */
   ArConstRetFunctor5C(T *obj, Ret (T::*func)(P1, P2, P3, P4, P5) const, P1 p1, P2 p2, P3 p3, P4 p4, P5 p5) :
     myObj(obj), myFunc(func), myP1(p1), myP2(p2), myP3(p3), myP4(p4), myP5(p5) {}

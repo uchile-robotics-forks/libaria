@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -84,19 +85,30 @@ void PrintingTask::doTask(void)
 
 int main(int argc, char** argv)
 {
-  // the connection
-  ArSimpleConnector con(&argc, argv);
-  if(!con.parseArgs())
-  {
-    con.logOptions();
-    return 1;
-  }
-
-  // robot
+  Aria::init();
+  ArArgumentParser parser(&argc, argv);
+  parser.loadDefaultArguments();
   ArRobot robot;
 
-  // sonar array range device
-  ArSonarDevice sonar;
+  ArRobotConnector robotConnector(&parser, &robot);
+  if(!robotConnector.connectRobot())
+  {
+    ArLog::log(ArLog::Terse, "robotSyncTaskExample: Could not connect to the robot.");
+    if(parser.checkHelpAndWarnUnparsed())
+    {
+        // -help not given
+        Aria::logOptions();
+        Aria::exit(1);
+    }
+  }
+
+  if (!Aria::parseArgs() || !parser.checkHelpAndWarnUnparsed())
+  {
+    Aria::logOptions();
+    Aria::exit(1);
+  }
+
+  ArLog::log(ArLog::Normal, "robotSyncTaskExample: Connected to robot.");
 
   // This object encapsulates the task we want to do every cycle. 
   // Upon creation, it puts a callback functor in the ArRobot object
@@ -106,17 +118,6 @@ int main(int argc, char** argv)
   // initialize aria
   Aria::init();
 
-  // add the sonar object to the robot
-  robot.addRangeDevice(&sonar);
-
-  // open the connection to the robot; if this fails exit
-  if(!con.connectRobot(&robot))
-  {
-    printf("Could not connect to the robot.\n");
-    return 2;
-  }
-  printf("Connected to the robot. (Press Ctrl-C to exit)\n");
-  
   
   // Start the robot process cycle running. Each cycle, it calls the robot's
   // tasks. When the PrintingTask was created above, it added a new

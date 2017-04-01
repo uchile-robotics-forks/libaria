@@ -123,9 +123,9 @@ AREXPORT ArTypes::Byte4 ArServerHandlerPopup::createPopup(
 	 popupData->myPopupInfo->getButton1Label(),
 	 popupData->myPopupInfo->getButton2Label());
   */
-  myServer->broadcastPacketTcp(&sendingPacket, "popupCreate");
   retID = myLastID;
   myDataMutex.unlock();
+  myServer->broadcastPacketTcp(&sendingPacket, "popupCreate");
   return retID;
 }
 

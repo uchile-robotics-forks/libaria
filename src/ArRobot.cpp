@@ -1,8 +1,9 @@
 /*
 Adept MobileRobots Robotics Interface for Applications (ARIA)
-Copyright (C) 2004, 2005 ActivMedia Robotics LLC
-Copyright (C) 2006, 2007, 2008, 2009, 2010 MobileRobots Inc.
-Copyright (C) 2011, 2012, 2013 Adept Technology
+Copyright (C) 2004-2005 ActivMedia Robotics LLC
+Copyright (C) 2006-2010 MobileRobots Inc.
+Copyright (C) 2011-2015 Adept Technology, Inc.
+Copyright (C) 2016 Omron Adept Technologies, Inc.
 
      This program is free software; you can redistribute it and/or modify
      it under the terms of the GNU General Public License as published by
@@ -98,6 +99,8 @@ AREXPORT ArRobot::ArRobot(const char *name, bool obsolete,
 {
   myMutex.setLogName("ArRobot::myMutex");
   myPacketMutex.setLogName("ArRobot::myPacketMutex");
+  myConnectionTimeoutMutex.setLogName("ArRobot::myConnectionTimeoutMutex");
+
   setName(name);
   myAriaExitCB.setName("ArRobotExit");
   myNoTimeWarningThisCycle = false;
@@ -140,7 +143,7 @@ AREXPORT ArRobot::ArRobot(const char *name, bool obsolete,
   myLastVel = 0;
   myLastRotVel = 0;
   myLastHeading = 0;
-  myLastCalculatedRotVel = 0;
+  myLastDeltaHeading = 0;
 
   myKeepControlRaw = false;
 
@@ -168,6 +171,10 @@ AREXPORT ArRobot::ArRobot(const char *name, bool obsolete,
 
   myMoveDoneDist = 40;
   myHeadingDoneDiff = 3;
+
+  myStoppedVel = 4;
+  myStoppedRotVel = 1;
+  myStoppedLatVel = 4;
 
   myOrigRobotConfig = NULL;
   myBatteryPacketReader = NULL;
@@ -791,6 +798,8 @@ AREXPORT ArDeviceConnection *ArRobot::getDeviceConnection(void) const
 **/
 AREXPORT void ArRobot::setConnectionTimeoutTime(int mSecs)
 {
+  myConnectionTimeoutMutex.lock();
+
   ArLog::log(ArLog::Normal, 
 	     "ArRobot::setConnectionTimeoutTime: Setting timeout to %d mSecs", 
 	     mSecs);
@@ -802,6 +811,8 @@ AREXPORT void ArRobot::setConnectionTimeoutTime(int mSecs)
     myTimeoutTime = mSecs;
   else
     myTimeoutTime = 0;
+
+  myConnectionTimeoutMutex.unlock();
 }
 
 /**
@@ -810,9 +821,12 @@ AREXPORT void ArRobot::setConnectionTimeoutTime(int mSecs)
    broken and the disconnect on error events will happen.
 
 **/
-AREXPORT int ArRobot::getConnectionTimeoutTime(void) const
+AREXPORT int ArRobot::getConnectionTimeoutTime(void) 
 {
-  return myTimeoutTime;
+  myConnectionTimeoutMutex.lock();
+  int ret = myTimeoutTime;
+  myConnectionTimeoutMutex.unlock();
+  return ret;
 }
 
 /**
@@ -822,9 +836,12 @@ AREXPORT int ArRobot::getConnectionTimeoutTime(void) const
 
    @return the time the last packet was received
 **/
-AREXPORT ArTime ArRobot::getLastPacketTime(void) const
+AREXPORT ArTime ArRobot::getLastPacketTime(void) 
 {
-  return myLastPacketReceivedTime;
+  myConnectionTimeoutMutex.lock();
+  ArTime ret = myLastPacketReceivedTime;
+  myConnectionTimeoutMutex.unlock();
+  return ret;
 }
 
 
@@ -837,9 +854,12 @@ AREXPORT ArTime ArRobot::getLastPacketTime(void) const
 
    @return the time the last SIP was received
 **/
-AREXPORT ArTime ArRobot::getLastOdometryTime(void) const
+AREXPORT ArTime ArRobot::getLastOdometryTime(void) 
 {
-  return myLastOdometryReceivedTime;
+  myConnectionTimeoutMutex.lock();
+  ArTime ret = myLastOdometryReceivedTime;
+  myConnectionTimeoutMutex.unlock();
+  return ret;
 }
 
 
@@ -1098,6 +1118,7 @@ AREXPORT int ArRobot::asyncConnectHandler(bool tryHarderToConnect)
 	if (myOrigRobotConfig->getStateOfChargeShutdown() > 0)
 	  setStateOfChargeShutdown(
 		  myOrigRobotConfig->getStateOfChargeShutdown());
+      ArLog::log(ArLog::Normal, "Robot Serial Number: %s", myOrigRobotConfig->getSerialNumber());
       }
       else if (myRequireConfigPacket)
       {
@@ -1543,8 +1564,8 @@ AREXPORT bool ArRobot::madeConnection(bool resetConnectionTime)
     return true;
   }
   
-  std::string subTypeParamName;
-  std::string paramFileName;
+  std::string subtypeParamFileName;
+  std::string nameParamFileName;
   bool loadedSubTypeParam;
   bool loadedNameParam;
   bool hadDefault = true;
@@ -1567,6 +1588,10 @@ AREXPORT bool ArRobot::madeConnection(bool resetConnectionTime)
     myParams = new ArRobotAmigo;
   else if (ArUtil::strcasecmp(myRobotSubType, "amigo-sh") == 0)
     myParams = new ArRobotAmigoSh;
+  else if (ArUtil::strcasecmp(myRobotSubType, "amigo-sh-tim5xx") == 0)
+    myParams = new ArRobotAmigoShTim5xxWibox;
+  else if (ArUtil::strcasecmp(myRobotSubType, "amigo-sh-tim3xx") == 0)
+    myParams = new ArRobotAmigoShTim5xxWibox;
   else if (ArUtil::strcasecmp(myRobotSubType, "p2at") == 0)
     myParams = new ArRobotP2AT;
   else if (ArUtil::strcasecmp(myRobotSubType, "p2at8") == 0)
@@ -1645,7 +1670,7 @@ AREXPORT bool ArRobot::madeConnection(bool resetConnectionTime)
     myParams = new ArRobotPowerBotSH_lms500;
   else if(ArUtil::strcasecmp(myRobotSubType, "researchPB-lms500") == 0)
     myParams = new ArRobotResearchPB_lms500;
-  else if(ArUtil::strcasecmp(myRobotSubType, "pioneer-lx") == 0 || 
+  else if(ArUtil::strcasecmp(myRobotSubType, "pioneer-lx") == 0 ||  // real type for Pioneer LX
     ArUtil::strcasecmp(myRobotSubType, "lx") == 0 ||   // subtype used in MobileSim 0.7.2
     ArUtil::strcasecmp(myRobotSubType, "marc_devel") == 0 || // subtype used in early versions of MARCOS firmware
     ArUtil::strcasecmp(myRobotSubType, "lynx") == 0
@@ -1658,45 +1683,45 @@ AREXPORT bool ArRobot::madeConnection(bool resetConnectionTime)
   }
 
   // load up the param file for the subtype
-  paramFileName = Aria::getDirectory();
-  paramFileName += "params/";
+  subtypeParamFileName = Aria::getDirectory();
+  subtypeParamFileName += "params/";
 
   // "marc_devel" is subtype given by early MTX core firmware,
   // but it ought to be pioneer-lx for research pioneer lx.
   if(ArUtil::strcasecmp(myRobotSubType, "marc_devel") == 0)
   {
     ArLog::log(ArLog::Verbose, "Note, Using pioneer-lx.p as parameter file for marc_devel robot subtype.");
-    paramFileName += "pioneer-lx";
+    subtypeParamFileName += "pioneer-lx";
   }
   else
   {
-    paramFileName += myRobotSubType;
+    subtypeParamFileName += myRobotSubType;
   }
 
-  paramFileName += ".p";
-  if ((loadedSubTypeParam = myParams->parseFile(paramFileName.c_str(), true, true)))
+  subtypeParamFileName += ".p";
+  if ((loadedSubTypeParam = myParams->parseFile(subtypeParamFileName.c_str(), true, true)))
       ArLog::log(ArLog::Normal, 
-		 "Loaded robot parameters from %s.p", 
-		 myRobotSubType.c_str());
+		 "Loaded robot parameters from %s", 
+		 subtypeParamFileName.c_str());
   /* If the above line was replaced with this one line
      paramFile->load(); 
      then the sonartest (and lots of other stuff probably) would break
   */
   // then the one for the particular name, if we can
-  paramFileName = Aria::getDirectory();
-  paramFileName += "params/";
-  paramFileName += myRobotName;
-  paramFileName += ".p";
-  if ((loadedNameParam = myParams->parseFile(paramFileName.c_str(),
+  nameParamFileName = Aria::getDirectory();
+  nameParamFileName += "params/";
+  nameParamFileName += myRobotName;
+  nameParamFileName += ".p";
+  if ((loadedNameParam = myParams->parseFile(nameParamFileName.c_str(),
 					     true, true)))
   {
     if (loadedSubTypeParam)
       ArLog::log(ArLog::Normal, 
- "Loaded robot parameters from %s.p on top of %s.p robot parameters", 
-		 myRobotName.c_str(), myRobotSubType.c_str());
+ "Loaded robot parameters from %s on top of %s robot parameters", 
+		 nameParamFileName.c_str(), subtypeParamFileName.c_str());
     else
-      ArLog::log(ArLog::Normal, "Loaded robot parameters from %s.p", 
-		 myRobotName.c_str());
+      ArLog::log(ArLog::Normal, "Loaded robot parameters from %s", 
+		 nameParamFileName.c_str());
   }
    
   if (!loadedSubTypeParam && !loadedNameParam)
@@ -1737,6 +1762,11 @@ AREXPORT bool ArRobot::madeConnection(bool resetConnectionTime)
  * getLeftEncoder() and getRightEncoder().
  *
  *  Encoder packets may be stopped with stopEncoderPackets().
+ *
+ * @note Encoder data is not available with all robot types.  It is currently
+ * only available from robots with SH controllers running ARCOS (Pioneer 3,
+ * PowerBot, PeopleBot, AmigoBot).  If a robot does not support encoder data,
+ * this request will be ignored.
  * 
  * Encoder packets are sent after the main SIP (motor packet) by ARCOS. If you want to 
  * handle encoder packets immediately upon reception, add a general robot packet handler to
@@ -1751,7 +1781,14 @@ AREXPORT void ArRobot::requestEncoderPackets(void)
 }
 
 /**
-  @see requestIOPackets()
+  Note that not all robots have built-in GPIO, and so will not return any
+  response to this request.  Refer to your robot's operations manual for
+  information on whether and what kind of digital and analog IO interface
+  it has.  (Pioneer 3, PeopleBot and PowerBot 
+  have digital IO built in to the robot.  On Pioneer LX, use ArMTXIO instead.
+  If running on Linux on a Versalogic EBX-12 computer, ArVersalogicIO can be
+  used to access the EBX-12 computer's IO interface.  Otherwise, a user-added
+  peripheral DAC interface is suggested.  )
 */
 AREXPORT void ArRobot::requestIOPackets(void)
 {
@@ -1810,8 +1847,11 @@ AREXPORT void ArRobot::finishedConnection(void)
 
   for (it = myConnectCBList.begin(); it != myConnectCBList.end(); it++)
     (*it)->invoke();
+
+  myConnectionTimeoutMutex.lock();
   myLastPacketReceivedTime.setToNow();
   myLastOdometryReceivedTime.setToNow();
+  myConnectionTimeoutMutex.unlock();
 
   wakeAllConnWaitingThreads();
 }
@@ -1857,9 +1897,6 @@ AREXPORT bool ArRobot::disconnect(void)
     return true;
 
   ArLog::log(ArLog::Terse, "Disconnecting from robot.");
-  myNoTimeWarningThisCycle = true;
-  myIsConnected = false;
-  myIsStabilizing = false;
   if (myIsConnected)
   {
     for (it = myDisconnectNormallyCBList.begin(); 
@@ -1867,6 +1904,9 @@ AREXPORT bool ArRobot::disconnect(void)
         it++)
       (*it)->invoke();
   }
+  myNoTimeWarningThisCycle = true;
+  myIsConnected = false;
+  myIsStabilizing = false;
   mySender.comInt(ArCommands::ENABLE, 0);
   ArUtil::sleep(100);
   ret = mySender.comInt(ArCommands::CLOSE, 1);
@@ -1888,17 +1928,23 @@ AREXPORT bool ArRobot::disconnect(void)
   return ret;
 }
 
-AREXPORT void ArRobot::dropConnection(const char *reason)
+AREXPORT void ArRobot::dropConnection(const char *technicalReason, 
+				      const char *userReason)
 {
   std::list<ArFunctor *>::iterator it;  
 
   if (!myIsConnected)
     return;
 
-  if (reason != NULL)
-    myDropConnectionReason = reason;
+  if (technicalReason != NULL)
+    myDropConnectionReason = technicalReason;
   else
-    myDropConnectionReason = "Lost connection to the robot because of unknown error.";
+    myDropConnectionReason = "Lost connection to the microcontroller because of unknown error.";
+
+  if (userReason != NULL)
+    myDropConnectionUserReason = userReason;
+  else
+    myDropConnectionUserReason = myDropConnectionReason;
 
   ArLog::log(ArLog::Terse, myDropConnectionReason.c_str());
   myIsConnected = false;
@@ -1916,7 +1962,7 @@ AREXPORT void ArRobot::cancelConnection(void)
 {
   //std::list<ArFunctor *>::iterator it;  
 
-  ArLog::log(ArLog::Verbose, "Cancelled connection to the robot because of command.");
+  ArLog::log(ArLog::Verbose, "Cancelled connection to the microcontroller because of command.");
   myIsConnected = false;
   myNoTimeWarningThisCycle = true;
   myIsStabilizing = false;
@@ -1949,7 +1995,10 @@ AREXPORT void ArRobot::stop(void)
 
 /**
   Sets the desired translational velocity of the robot. 
-  ArRobot caches this value, and sends it with a VEL command during the next cycle.
+  ArRobot caches this value, and sends it with a VEL command during the next
+cycle. 
+  The value is rounded to the nearest whole number mm/sec before
+  sent to the robot controller.
 
   @param velocity the desired translational velocity of the robot (mm/sec)
  **/
@@ -1966,6 +2015,8 @@ AREXPORT void ArRobot::setVel(double velocity)
   ArRobot caches this value, and sends it with a LATVEL command during the next cycle.
   (Only has effect on robots that are capable of translating laterally, i.e.
   Seekur. Other robots will ignore the command.)
+  The value is rounded to the nearest whole number mm/sec before
+  sent to the robot controller.
 
   @param latVelocity the desired translational velocity of the robot (mm/sec)
  **/
@@ -1977,15 +2028,29 @@ AREXPORT void ArRobot::setLatVel(double latVelocity)
 }
 
 /** 
-  Sets the velocity of each of the wheels on the robot
-  independently.  ArRobot caches these values, and sends them with 
+  Sends command to set the robot's velocity differentially, with
+  separate velocities for left and right sides of the robot. The
+  ArRobot caches these values, and sends them with 
   a VEL2 command during the next
   cycle.  Note that this cancels both translational velocity AND
   rotational velocity, and is canceled by any of the other direct
   motion commands.  
+  The values are rounded to the nearest whole number mm/sec before
+  sent to the robot controller.
+
+  @note This method of controlling the robot is primarily for compatibility with
+  old robots and is not recommended.  Instead use setVel() and setRotVel() to
+  set translational and rotational components of robot motion.
+
+  @note Not all robots (e.g. Pioneer LX) implement this command it, it may be ignored.
+  There may also be some differences in how different robot firmware types
+  implement this command. See robot operations manual for more details.
+
   @sa setVel
   @sa setRotVel
   @sa clearDirectMotion
+
+  @deprecated
 
   @param leftVelocity the desired velocity of the left wheel 
   @param rightVelocity the desired velocity of the right wheel
@@ -2073,7 +2138,8 @@ AREXPORT bool ArRobot::isHeadingDone(double delta) const
 
 /**
   Sets the heading of the robot, it caches this value, and sends it
-  during the next cycle. 
+  during the next cycle.  The heading value is rounded to the nearest
+  whole degree before sending to the robot.
 
   @param heading the desired heading of the robot (degrees)
  **/
@@ -2092,7 +2158,8 @@ AREXPORT void ArRobot::setHeading(double heading)
 
 /**
   Sets the rotational velocity of the robot, it caches this value,
-  and sends it during the next cycle.  
+  and during the next command cycle, the value is rounded to the 
+  nearest whole integer degree, and sent to the robot as an RVEL command.
 
   @param velocity the desired rotational velocity of the robot (deg/sec)
  **/
@@ -2127,6 +2194,32 @@ AREXPORT void ArRobot::setDeltaHeading(double deltaHeading)
     myTransVal2 = 0;
   }
 }
+
+AREXPORT bool ArRobot::isStopped(double stoppedVel, double stoppedRotVel,
+				 double stoppedLatVel)
+{
+  if (stoppedVel < 0.001)
+    stoppedVel = myStoppedVel;
+  if (stoppedRotVel < 0.001)
+    stoppedRotVel = myStoppedRotVel;
+  if (stoppedLatVel < 0.001)
+    stoppedLatVel = myStoppedLatVel;
+
+  if (fabs(myVel) <= stoppedVel && fabs(myRotVel) <= stoppedRotVel && 
+      (!hasLatVel() || fabs(myLatVel) < stoppedLatVel))
+    return true;
+  else
+    return false;
+}
+
+/// Sets the vels required to be stopped
+AREXPORT void ArRobot::setStoppedVels(double stoppedVel, double stoppedRotVel,
+			     double stoppedLatVel) {
+	myStoppedVel = stoppedVel;
+	myStoppedRotVel = stoppedRotVel;
+	myStoppedLatVel = stoppedLatVel;
+}
+
 
 /**
   This sets the absolute maximum velocity the robot will go... the
@@ -2429,7 +2522,7 @@ AREXPORT bool ArRobot::setAbsoluteMaxLatVel(double maxLatVel)
   }
 
   if (fabs(maxLatVel - myAbsoluteMaxLatVel) > ArMath::epsilon())
-    ArLog::log(ArLog::Normal, 
+    ArLog::log(ArLog::Verbose, 
 	       "ArRobot::setAbsoluteMaxLatVel: Setting to %g",
 	       maxLatVel);
 
@@ -2469,7 +2562,7 @@ AREXPORT bool ArRobot::setAbsoluteMaxLatAccel(double maxAccel)
   }
 
   if (fabs(maxAccel - myAbsoluteMaxLatAccel) > ArMath::epsilon())
-    ArLog::log(ArLog::Normal, 
+    ArLog::log(ArLog::Verbose, 
 	       "ArRobot::setAbsoluteMaxLatAccel: Setting to %g",
 	       maxAccel);
 
@@ -2509,7 +2602,7 @@ AREXPORT bool ArRobot::setAbsoluteMaxLatDecel(double maxDecel)
   }
 
   if (fabs(maxDecel - myAbsoluteMaxLatDecel) > ArMath::epsilon())
-    ArLog::log(ArLog::Normal, 
+    ArLog::log(ArLog::Verbose, 
 	       "ArRobot::setAbsoluteMaxLatDecel: Setting to %g",
 	       maxDecel);
 
@@ -3003,6 +3096,10 @@ AREXPORT ArSyncTask *ArRobot::getSyncTaskRoot(void)
    The synchronous tasks get called every robot cycle (every 100 ms by 
    default).  
 
+   @warning Not thread safe; if robot thread is running in background (from
+    runAsync()), you must lock the ArRobot object before calling and unlock after
+    calling this method.
+
    @param name the name to give to the task, should be unique
 
    @param position the place in the list of user tasks to place this
@@ -3088,6 +3185,9 @@ AREXPORT void ArRobot::remUserTask(ArFunctor *functor)
 /**
    The synchronous tasks get called every robot cycle (every 100 ms by 
    default).  
+   @warning Not thread safe; if robot thread is running in background (from
+    runAsync()), you must lock the ArRobot object before calling and unlock after
+    calling this method.
    @param name the name to give to the task, should be unique
    @param position the place in the list of user tasks to place this 
    task, this can be any integer, though by convention 0 to 100 is used.
@@ -4453,12 +4553,15 @@ AREXPORT bool ArRobot::handlePacket(ArRobotPacket *packet)
     return false;
   }
 
+  myConnectionTimeoutMutex.lock();
   //printf("ms since last packet %ld this type 0x%x\n", myLastPacketReceivedTime.mSecSince(packet->getTimeReceived()), packet->getID());
   myLastPacketReceivedTime = packet->getTimeReceived();
+  myConnectionTimeoutMutex.unlock();
 
   if (packet->getID() == 0xff) 
   {
-    dropConnection("Losing connection because microcontroller reset.");
+    dropConnection("Losing connection because microcontroller reset.",
+		   "because microcontroller reset");
     unlock();
     return false;
   }
@@ -4471,7 +4574,7 @@ AREXPORT bool ArRobot::handlePacket(ArRobotPacket *packet)
     while (packet->getDataLength() - packet->getDataReadLength() > 0)
       sprintf(buf, "%s 0x%x", buf, packet->bufToUByte());
 
-    dropConnection(buf);
+    dropConnection(buf, "because microcontroller reset");
     unlock();
     return false;
   }
@@ -4640,25 +4743,37 @@ AREXPORT void ArRobot::packetHandlerNonThreaded(void)
       timeToWait = 0;
   }
 
+  myConnectionTimeoutMutex.lock();
   if (myTimeoutTime > 0 && 
       ((-myLastOdometryReceivedTime.mSecTo()) > myTimeoutTime))
   {
     char buf[10000];
     sprintf(buf, 
-	    "Losing connection because no odometry received from robot in %d milliseconds (greater than the timeout of %d).", 
+	    "Losing connection because no odometry received from microcontroller in %ld milliseconds (greater than the timeout of %d).", 
 	    (-myLastOdometryReceivedTime.mSecTo()),
 	    myTimeoutTime);
-    dropConnection(buf);
+    myConnectionTimeoutMutex.unlock();
+    dropConnection(buf, "because lost connection to microcontroller");
+  }
+  else
+  {
+    myConnectionTimeoutMutex.unlock();
   }
 
+  myConnectionTimeoutMutex.lock();
   if (myTimeoutTime > 0 && 
       ((-myLastPacketReceivedTime.mSecTo()) > myTimeoutTime))
   {
     char buf[10000];
-    sprintf(buf, "Losing connection because nothing received from robot in %d milliseconds (greater than the timeout of %d).", 
+    sprintf(buf, "Losing connection because nothing received from robot in %ld milliseconds (greater than the timeout of %d).", 
 	       (-myLastPacketReceivedTime.mSecTo()),
 	       myTimeoutTime);
-    dropConnection(buf);
+    myConnectionTimeoutMutex.unlock();
+    dropConnection(buf, "because lost connection to microcontroller");
+  }
+  else
+  {
+    myConnectionTimeoutMutex.unlock();
   }
 
   if (myPacketsReceivedTracking)
@@ -4774,25 +4889,37 @@ AREXPORT void ArRobot::packetHandlerThreadedProcessor(void)
     packet = NULL;
   }
 
+  myConnectionTimeoutMutex.lock();
   if (myTimeoutTime > 0 && 
       ((-myLastOdometryReceivedTime.mSecTo()) > myTimeoutTime))
   {
     char buf[10000];
     sprintf(buf, 
-	    "Losing connection because no odometry received from robot in %d milliseconds (greater than the timeout of %d).", 
+	    "Losing connection because no odometry received from robot in %ld milliseconds (greater than the timeout of %d).", 
 	    (-myLastOdometryReceivedTime.mSecTo()),
 	    myTimeoutTime);
-    dropConnection(buf);
+    myConnectionTimeoutMutex.unlock();
+    dropConnection(buf, "because lost connection to microcontroller");
+  }
+  else
+  {
+    myConnectionTimeoutMutex.unlock();
   }
 
+  myConnectionTimeoutMutex.lock();
   if (myTimeoutTime > 0 && 
       ((-myLastPacketReceivedTime.mSecTo()) > myTimeoutTime))
   {
     char buf[10000];
-    sprintf(buf, "Losing connection because nothing received from robot in %d milliseconds (greater than the timeout of %d).", 
+    sprintf(buf, "Losing connection because nothing received from robot in %ld milliseconds (greater than the timeout of %d).", 
 	       (-myLastPacketReceivedTime.mSecTo()),
 	       myTimeoutTime);
-    dropConnection(buf);
+    myConnectionTimeoutMutex.unlock();
+    dropConnection(buf, "because lost connection to microcontroller");
+  }
+  else
+  {
+    myConnectionTimeoutMutex.unlock();
   }
 
   if (myPacketsReceivedTracking)
@@ -5274,33 +5401,78 @@ AREXPORT bool ArRobot::processMotorPacket(ArRobotPacket *packet)
     }
   }
 
+  // holder for information we log if we're tracking packet received
+  // and have timing info
+  std::string movementReceivedTimingStr;
 
   if (packet->getDataLength() - packet->getDataReadLength() > 0)
   {
     ArTypes::UByte4 uCUSec = 0;
+    ArTypes::UByte4 lpcNowUSec = 0;
     ArTypes::UByte4 lpcUSec = 0;
-    
+    ArTime now;
+    long long mSecSince = -999;
+    ArTime recvTime;
+
     uCUSec = packet->bufToUByte4();
     // make sure we get a good value
-    if (myPacketsReceivedTracking && 
-	myMTXTimeUSecCB != NULL && myMTXTimeUSecCB->invokeR(&lpcUSec))
+    if ((myPacketsReceivedTracking || myLogMovementReceived) && 
+	myMTXTimeUSecCB != NULL && myMTXTimeUSecCB->invokeR(&lpcNowUSec))
     {
-      ArTime now;
-      long long mSecSince = packet->getTimeReceived().mSecSinceLL(now);
-      ArLog::log(ArLog::Normal, "MotorPacketTiming: commDiff %lld fpgaDiff %2d.%03d bytes %d\nFPGA:uC  %6u.%03u.%.03u\nFPGA:lpc %6u.%03u.%.03u\nArTime:1stByte %6lld.%.03lld\nArTime:now     %6lld.%.03lld", 
-		 mSecSince, 
-		 ((lpcUSec - uCUSec) % 1000000) / 1000, (lpcUSec - uCUSec) % 1000,
-		 packet->getLength(),
+      mSecSince = packet->getTimeReceived().mSecSinceLL(now);
+      lpcUSec = lpcNowUSec - (mSecSince + myOdometryDelay) * 1000;
+      
+      recvTime = packet->getTimeReceived();
+      /// MPL adding this so that each place the pose interpolation is
+      /// used it doesn't have to account for the odometry delay
+      recvTime.addMSec(-myOdometryDelay);
 
+      char buf[1024];
+      sprintf(buf, " time: %6lld.%03lld.000 uCTime: %6u.%03u.%.03u",
+	      recvTime.getSecLL(), recvTime.getMSecLL(),
+	      uCUSec / 1000000, (uCUSec % 1000000) / 1000, uCUSec % 1000);
+      movementReceivedTimingStr = buf;
+    }
+
+    if (myPacketsReceivedTracking)
+      ArLog::log(ArLog::Normal, "MotorPacketTiming: commDiff %lld fpgaNowDiff %2d.%03d fpgaPacketDiff %2d.%03d bytes %d\nFPGA:uC  %6u.%03u.%.03u\nFPGA:lpcNow %6u.%03u.%.03u\nArTime:1stByte %6lld.%03lld\nArTime:now     %6lld.%.03lld\nFPGA:lpcPacket %6u.%03u.%03u", 
+		 mSecSince, 
+		 ((lpcNowUSec - uCUSec) % 1000000) / 1000, (lpcNowUSec - uCUSec) % 1000,
+		 ((lpcUSec - uCUSec) % 1000000) / 1000, (lpcUSec - uCUSec) % 1000,		 
+		 packet->getLength(),
+		 
 		 uCUSec / 1000000, (uCUSec % 1000000) / 1000, uCUSec % 1000,
-		 lpcUSec / 1000000, (lpcUSec % 1000000) / 1000, lpcUSec % 1000,
+		 lpcNowUSec / 1000000, (lpcNowUSec % 1000000) / 1000, lpcNowUSec % 1000,
 		 packet->getTimeReceived().getSecLL(), 
 		 packet->getTimeReceived().getMSecLL(),
-		 now.getSecLL(), now.getMSecLL());
-      
-    }
+		 now.getSecLL(), now.getMSecLL(),
+		 lpcUSec / 1000000, (lpcUSec % 1000000) / 1000, lpcUSec % 1000);
+    
+  }
+  else if (myLogMovementReceived)
+  {
+    ArTime recvTime = packet->getTimeReceived();
+    /// MPL adding this so that each place the pose interpolation is
+    /// used it doesn't have to account for the odometry delay
+    recvTime.addMSec(-myOdometryDelay);
+    
+    char buf[1024];
+    sprintf(buf, " time: %6lld.%03lld.000",
+	    recvTime.getSecLL(), recvTime.getMSecLL());
+    movementReceivedTimingStr = buf;
   }
 
+  if (packet->getDataLength() - packet->getDataReadLength() > 0)
+  {
+    myHasFlags3 = true;
+    myFlags3 = packet->bufToUByte4();      
+  }
+  else
+  {
+    myHasFlags3 = false;
+    myFlags3 = 0;
+  }
+  
   if(myLogSIPContents)
   {
     ArLog::log(ArLog::Normal, "SIP Contents:\n\tx=%d, y=%d, th=%d, lvel=%.2f, rvel=%.2f, battery=%.1f, stallval=0x%x, control=%d, compass=%d",
@@ -5417,13 +5589,18 @@ AREXPORT bool ArRobot::processMotorPacket(ArRobotPacket *packet)
   if (myLogMovementReceived && 
       (fabs(deltaX) > .0001 || fabs(deltaY) > .0001 || fabs(deltaTh) > .0001))
     ArLog::log(ArLog::Normal, 
-	       "Global (%5.0f %5.0f %7.1f) Encoder (%5.0f %5.0f %7.1f) EncDelta (%5.0f %5.0f %7.1f) Rawest (%5d %5d %5d) Conv %5.2f",
+	       "Global: %5.0f %5.0f %7.1f GlobalDelta: %5.0f %5.0f %7.1f uC: %5.0f %5.0f %7.1f uCDelta: %5.0f %5.0f %7.1f RawUC: %5d %5d %5d%s",
 	       myGlobalPose.getX(), myGlobalPose.getY(),
 	       myGlobalPose.getTh(),
+	       myGlobalPose.getX() - myLastGlobalPose.getX(), 
+	       myGlobalPose.getY() - myLastGlobalPose.getY(), 
+	       ArMath::subAngle(myGlobalPose.getTh(), myLastGlobalPose.getTh()),
 	       myEncoderPose.getX(), myEncoderPose.getY(),
 	       myEncoderPose.getTh(),
 	       deltaX, deltaY, deltaTh, x, y, th, 
-	       myParams->getDistConvFactor());	      
+	       movementReceivedTimingStr.c_str());
+
+  myLastGlobalPose = myGlobalPose;
 
   if (myLogMovementReceived && sqrt(deltaX*deltaX + deltaY*deltaY) > 1000)
   {
@@ -5436,23 +5613,23 @@ AREXPORT bool ArRobot::processMotorPacket(ArRobotPacket *packet)
   {
     if (!hasLatVel())
       ArLog::log(ArLog::Normal, 
-		 "     TransVel: %4.0f RotVel: %4.0f(%4.0f) Heading %4.0f TransAcc %4.0f RotAcc %4.0f(%4.0f)",
+		 "     TransVel: %4.0f RotVel: %4.0f dTh: %4.0f Th: %4.0f TransAcc: %4.0f RotAcc: %4.0f ddTh: %4.0f",
 		 myVel, myRotVel, myLastHeading - getTh(), getTh(), 
 		 myVel - myLastVel, myRotVel - myLastRotVel,
-		 myLastCalculatedRotVel - (myLastHeading - getTh()));
+		 myLastDeltaHeading - (myLastHeading - getTh()));
     else
       ArLog::log(ArLog::Normal, 
-		 "     TransVel: %4.0f RotVel: %4.0f(%4.0f) Heading %4.0f DTrans %4.0f DRot %4.0f(%4.0f) LatVel: %4.0f DLat %4.0f",
+		 "     TransVel: %4.0f RotVel: %4.0f dTh: %4.0f Th: %4.0f DTrans %4.0f DRot %4.0f ddth: %4.0f LatVel: %4.0f DLat: %4.0f",
 		 myVel, myRotVel, myLastHeading - getTh(), getTh(), 
 		 myVel - myLastVel, myRotVel - myLastRotVel,
-		 myLastCalculatedRotVel - (myLastHeading - getTh()),
+		 myLastDeltaHeading - (myLastHeading - getTh()),
 		 myLatVel, myLatVel - myLastLatVel);
   }
   myLastVel = myVel;
   myLastRotVel = myRotVel;
   myLastLatVel = myLatVel;
   myLastHeading = getTh();
-  myLastCalculatedRotVel = myLastHeading - getTh();
+  myLastDeltaHeading = myLastHeading - getTh();
 
   //ArLog::log(ArLog::Terse, "(%.0f %.0f) (%.0f %.0f)", deltaX, deltaY, myGlobalPose.getX(),	     myGlobalPose.getY());
 
@@ -5465,7 +5642,9 @@ AREXPORT bool ArRobot::processMotorPacket(ArRobotPacket *packet)
   // issue that looked like timing
   //ArLog::log(ArLog::Normal, "Robot packet %lld mSec old", packetTime.mSecSince());
   
+  myConnectionTimeoutMutex.lock();
   myLastOdometryReceivedTime = packetTime;
+  myConnectionTimeoutMutex.unlock();
 
   myInterpolation.addReading(packetTime, myGlobalPose);
   myEncoderInterpolation.addReading(packetTime, myEncoderPose);

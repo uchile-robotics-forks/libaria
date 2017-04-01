@@ -67,6 +67,8 @@ public:
   AREXPORT bool parseFile(const char *fileName);
   /// Sets the tcpOnly flag
   void setServerTcpOnly(bool serverTcpOnly) { myTcpOnly = serverTcpOnly; }
+  /// Gets the server key
+  const char *getServerKey(void) { return myServerKey.c_str(); } 
 protected:
   AREXPORT bool parseArgsWithOutPrefix(ArArgumentParser *parser);
   AREXPORT bool parseArgsWithPrefix(ArArgumentParser *parser);
